@@ -117,8 +117,8 @@ class HousingEvaluatorGUI:
         self.btn_explain = ttk.Button(inner_analysis, text="Estimeaza si Explica", command=self.explain_individual_house)
         self.btn_explain.grid(row=1, column=2, padx=10)
         
-        self.force_sim_var = tk.BooleanVar(value=True)
-        chk_sim = ttk.Checkbutton(inner_analysis, text="Fortare mod simulat", variable=self.force_sim_var)
+        self.force_sim_var = tk.BooleanVar(value=False)
+        chk_sim = ttk.Checkbutton(inner_analysis, text="Forțare mod simulat (test fără Ollama)", variable=self.force_sim_var)
         chk_sim.grid(row=1, column=3, sticky="w", padx=10)
         
         # Grid layout pentru date, comparatie si grafic
@@ -172,10 +172,10 @@ class HousingEvaluatorGUI:
             messagebox.showerror("Eroare", "Procentul date de antrenare trebuie sa fie intre 10 si 100.")
             return
             
-        with messagebox.showinfo("Antrenare", "Se antreneaza modelul pe fractiunea de date selectata..."):
-            self.backend.train_model(train_fraction=frac)
-            self.update_train_stats_label()
-            self.load_houses_list()
+        self.backend.train_model(train_fraction=frac)
+        self.update_train_stats_label()
+        self.load_houses_list()
+        messagebox.showinfo("Antrenare", "Modelul a fost antrenat pe fractiunea selectata.")
             
     def load_houses_list(self):
         self.houses = self.backend.get_test_houses(n=50)
