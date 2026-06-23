@@ -315,7 +315,7 @@ class HousingEvaluatorBackend:
         weights_block = " ".join([f"[{k.upper()}: {weights[k]}]" for k in self.feature_names])
         return f"{text}\n\n[PREDICTION: {sim_pred:.0f}]\n{weights_block}", True
 
-    def generate_explanation(self, features_dict, pred_price, contributions, force_simulation=False, use_ollama=True, custom_prompt=None):
+    def generate_explanation(self, features_dict, pred_price, contributions, force_simulation=False, use_ollama=True):
         """Generate LLM explanation (Ollama or Groq, fallback to simulated)."""
 
         if force_simulation:
@@ -323,58 +323,59 @@ class HousingEvaluatorBackend:
 
         # Try Ollama first (if use_ollama=True)
         if use_ollama:
-            # Use custom prompt if provided (from optimization pipeline in GUI)
-            if custom_prompt:
-                ollama_prompt = custom_prompt
-            else:
-                # USE TRAINED RANDOM FOREST MODEL for most accurate prediction
-                final_price = pred_price  # pred_price from RF model
+            ollama_prompt = f"""ESTIMATE CALIFORNIA HOUSE PRICE FROM FEATURES ONLY
 
-                # Calculate actual ML weights from contributions to align with LLM
-                abs_contrib = {k: abs(v) for k, v in contributions.items()}
-                total = sum(abs_contrib.values()) if sum(abs_contrib.values()) > 0 else 1
+You are a real estate analyst. Based ONLY on these house characteristics, estimate the market price.
+Do NOT reference any pre-existing price - calculate independently from the data provided.
 
-                ml_weights = {}
-                for feat in self.feature_names:
-                    w = (abs_contrib[feat] / total) * 100 if total > 0 else 100 / 8
-                    ml_weights[feat] = int(round(w))
+=== HOUSE CHARACTERISTICS (REAL DATA) ===
+Median Area Income: ${features_dict['MedInc']*10000:,.0f}/year
+House Age: {features_dict['HouseAge']:.0f} years
+Average Rooms: {features_dict['AveRooms']:.2f}
+Average Bedrooms: {features_dict['AveBedrms']:.2f}
+Area Population: {int(features_dict['Population'])} people
+Average Occupancy: {features_dict['AveOccup']:.1f} per household
+Latitude: {features_dict['Latitude']:.2f}°N (California ranges 32-42°N)
+Longitude: {features_dict['Longitude']:.2f}°W (California ranges -124 to -114°W)
 
-                # Ensure weights sum to 100
-                diff = 100 - sum(ml_weights.values())
-                ml_weights[self.feature_names[0]] += diff
+=== MARKET CONTEXT ===
+California house prices: $15,000 minimum to $500,000 maximum
+Key value drivers:
+- INCOME (45-50%): Wealthier areas = more expensive homes. Strong correlation.
+- ROOMS/SIZE (20-25%): More rooms = higher value
+- AGE (10-15%): Newer = more valuable
+- LOCATION (10-20%): Coastal (lon ~-122°W, lat ~37°N) has premium. Inland standard.
+- POPULATION (5-10%): Moderate density = stable; very high density mixed effects
 
-                # Format weights string
-                weights_str = " ".join([f"[{k.upper()}: {ml_weights[k]}]" for k in self.feature_names])
+=== YOUR TASK ===
+1. Analyze each feature and its market impact
+2. Calculate a realistic price estimate (use the features as your data source)
+3. Explain your reasoning in 4-5 sentences (reference specific numbers from the data)
+4. Assign percentage weights to each factor (MUST SUM TO 100%)
+5. Provide your final price estimate
 
-                # Detailed prompt for better explanation
-                ollama_prompt = f"""PROPERTY VALUATION ANALYSIS
+=== OUTPUT FORMAT (MUST FOLLOW EXACTLY) ===
 
-HOUSE DATA:
-- Median Income Area: ${features_dict['MedInc']*10000:,.0f}/year
-- House Age: {features_dict['HouseAge']:.0f} years
-- Average Rooms: {features_dict['AveRooms']:.2f}
-- Bedrooms: {features_dict['AveBedrms']:.2f}
-- Population: {int(features_dict['Population'])}
-- Occupancy: {features_dict['AveOccup']:.1f}
-- Location: {features_dict['Latitude']:.2f}°N, {features_dict['Longitude']:.2f}°W
+[Explanation: 4-5 sentences analyzing the house characteristics and their impact on price]
 
-ANALYSIS & VALUATION:
+[MEDINC: ___] [HOUSEAGE: ___] [AVEROOMS: ___] [AVEBEDRMS: ___] [POPULATION: ___] [AVEOCCUP: ___] [LATITUDE: ___] [LONGITUDE: ___]
 
-Provide a detailed 4-5 sentence analysis covering:
-1. How income level impacts the property value
-2. The role of house age and property condition
-3. Room count and living space quality
-4. Location factors (geographic position)
-5. Overall market positioning and price estimate
+[PREDICTION: $______]
 
-RESPONSE FORMAT:
+=== IMPORTANT ===
+Weights MUST be numbers ONLY (0-100), NOT dollar amounts.
+Example: [MEDINC: 47] NOT [MEDINC: $47,000]
 
-[Detailed explanation - 4-5 sentences analyzing all factors]
+=== EXAMPLE ANALYSIS ===
+This California property is in an area with median income of $65,000/year. The house is 18 years old. It has 6.1 rooms and 1.0 bedrooms. Location at 37.5°N, -122°W is Bay Area coast premium.
 
-Factor Importance Weights:
-{weights_str}
+[MEDINC: 47] [HOUSEAGE: 12] [AVEROOMS: 25] [AVEBEDRMS: 8] [POPULATION: 5] [AVEOCCUP: 2] [LATITUDE: 1] [LONGITUDE: 0]
 
-ESTIMATED HOUSE PRICE: {int(final_price)}"""
+[PREDICTION: $285000]
+
+=== YOUR RESPONSE ===
+Explain in 2-3 sentences. Then EXACTLY 8 numbers (sum to 100). Then price.
+Do NOT use dollar signs in weights. Only: [MEDINC: 45] etc."""
 
             response, is_sim = self.query_ollama(ollama_prompt)
             if response and not is_sim:
@@ -421,53 +422,19 @@ RESPOND WITH:
         llm_pred = None
         llm_weights = {name: 0.0 for name in self.feature_names}
 
-        # Extract prediction - STRICT parsing with specific keyword
-        llm_pred = None
-
-        # PRIORITY 1: Look for "ESTIMATED HOUSE PRICE:" keyword (most specific)
-        pred_match = re.search(r'ESTIMATED\s+HOUSE\s+PRICE:\s*([\d,]+)', text, re.IGNORECASE)
+        # Extract prediction - MUST have [PREDICTION: ...] format
+        pred_match = re.search(r'\[PREDICTION:\s*\$?([\d,]+(?:\.\d+)?)\]', text, re.IGNORECASE)
         if pred_match:
+            pred_str = pred_match.group(1).replace(',', '')
             try:
-                pred_str = pred_match.group(1).replace(',', '')
                 llm_pred = float(pred_str)
-                if not (15000 <= llm_pred <= 500000):
+                # Sanity check: price should be between $15K and $500K
+                if llm_pred < 15000 or llm_pred > 500000:
                     llm_pred = None
-            except (ValueError, IndexError):
+            except ValueError:
                 pass
 
-        # PRIORITY 2: Try other prediction keywords
-        if llm_pred is None:
-            patterns = [
-                r'PREDICTION:\s*\$?([\d,]+)',
-                r'\[PREDICTION:\s*\$?([\d,]+)\]',
-                r'(?:estimated|house)?\s*(?:price|cost):\s*\$?([\d,]+)',
-            ]
-            for pattern in patterns:
-                pred_match = re.search(pattern, text, re.IGNORECASE)
-                if pred_match:
-                    try:
-                        pred_str = pred_match.group(1).replace(',', '').strip()
-                        llm_pred = float(pred_str)
-                        if 15000 <= llm_pred <= 500000:
-                            break
-                        else:
-                            llm_pred = None
-                    except (ValueError, IndexError):
-                        continue
-
-        # PRIORITY 3: Find 5-6 digit numbers in proper price range
-        if llm_pred is None:
-            numbers = re.findall(r'\b([\d,]+)\b', text)
-            for num_str in reversed(numbers):
-                try:
-                    num = float(num_str.replace(',', ''))
-                    if 15000 <= num <= 500000:
-                        llm_pred = num
-                        break
-                except ValueError:
-                    continue
-
-        # Extract weights - search for [WORD: NOM%] pattern
+        # Extract weights - search for [WORD: NUM%] pattern
         weights_found = 0
         for name in self.feature_names:
             # Match both [NAME: %] and [NAME: N%] formats
