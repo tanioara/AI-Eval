@@ -3,6 +3,8 @@ import pandas as pd
 import requests
 import random
 import re
+import os
+from collections import Counter
 from sklearn.datasets import fetch_california_housing
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
@@ -28,6 +30,60 @@ KEYWORD_DICTIONARY = {
     "Latitude": ["locați", "poziți", "zon", "nord", "sud", "geograf", "apropier", "coordonat", "location", "area", "latitud", "hartă"],
     "Longitude": ["locați", "poziți", "zon", "est", "vest", "geograf", "apropier", "coordonat", "location", "area", "longitud", "ocean", "plaj", "coas", "californi", "litoral", "maritim", "apropiere de apă"]
 }
+
+
+def calculate_bleu_score(reference_text, generated_text, n=2):
+    """Calculate BLEU score (n-gram precision). Higher = more similar to reference."""
+    ref_tokens = reference_text.lower().split()
+    gen_tokens = generated_text.lower().split()
+
+    if len(gen_tokens) == 0:
+        return 0.0
+
+    # Calculate n-gram matches
+    matches = 0
+    total = max(len(gen_tokens) - n + 1, 0)
+
+    if total == 0:
+        return 0.0
+
+    ref_ngrams = [' '.join(ref_tokens[i:i+n]) for i in range(len(ref_tokens) - n + 1)]
+    gen_ngrams = [' '.join(gen_tokens[i:i+n]) for i in range(len(gen_tokens) - n + 1)]
+
+    ref_counts = Counter(ref_ngrams)
+    gen_counts = Counter(gen_ngrams)
+
+    for ngram in gen_counts:
+        matches += min(gen_counts[ngram], ref_counts.get(ngram, 0))
+
+    return (matches / total) * 100 if total > 0 else 0.0
+
+
+def calculate_rouge_score(reference_text, generated_text):
+    """Calculate ROUGE-L score (longest common subsequence). Higher = better overlap."""
+    ref_tokens = reference_text.lower().split()
+    gen_tokens = generated_text.lower().split()
+
+    if len(ref_tokens) == 0 or len(gen_tokens) == 0:
+        return 0.0
+
+    # LCS-based scoring
+    def lcs_length(a, b):
+        m, n = len(a), len(b)
+        dp = [[0] * (n + 1) for _ in range(m + 1)]
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if a[i-1] == b[j-1]:
+                    dp[i][j] = dp[i-1][j-1] + 1
+                else:
+                    dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+        return dp[m][n]
+
+    lcs = lcs_length(ref_tokens, gen_tokens)
+    recall = (lcs / len(ref_tokens)) * 100 if len(ref_tokens) > 0 else 0.0
+    precision = (lcs / len(gen_tokens)) * 100 if len(gen_tokens) > 0 else 0.0
+
+    return (recall + precision) / 2 if recall > 0 or precision > 0 else 0.0
 
 
 class HousingEvaluatorBackend:
@@ -65,13 +121,15 @@ class HousingEvaluatorBackend:
             X_train = self.X_train
             y_train = self.y_train
 
-        # Train Random Forest
+        # Train Random Forest - optimized for accuracy
         self.model = RandomForestRegressor(
-            n_estimators=100,
-            max_depth=12,
+            n_estimators=500,          # More trees = better accuracy
+            max_depth=20,              # Deeper trees capture more patterns
+            min_samples_split=2,       # Allow granular splits
+            min_samples_leaf=1,        # Fine-grained leaves
             random_state=42,
             n_jobs=-1,
-            min_samples_split=5
+            verbose=0
         )
         self.model.fit(X_train, y_train)
         self.baseline = X_train.mean()
@@ -161,12 +219,42 @@ class HousingEvaluatorBackend:
             "model": model_name,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.2}
+            "options": {"temperature": 0.2, "top_p": 0.85, "num_predict": 400}
         }
         try:
-            response = requests.post(url, json=payload, timeout=60)
+            response = requests.post(url, json=payload, timeout=120)
             if response.status_code == 200:
-                return response.json().get("response", "").strip(), False
+                result = response.json().get("response", "").strip()
+                if result:
+                    return result, False
+            return "", True
+        except requests.exceptions.Timeout:
+            return "", True
+        except Exception as e:
+            return "", True
+
+    def query_groq(self, prompt, model_name="llama-3.1-70b-versatile"):
+        """Query Groq API (free tier, fast inference)."""
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            return "", True
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+            "max_tokens": 1024
+        }
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code == 200:
+                content = response.json()["choices"][0]["message"]["content"]
+                return content.strip(), False
             else:
                 return "", True
         except Exception:
@@ -227,24 +315,98 @@ class HousingEvaluatorBackend:
         weights_block = " ".join([f"[{k.upper()}: {weights[k]}]" for k in self.feature_names])
         return f"{text}\n\n[PREDICTION: {sim_pred:.0f}]\n{weights_block}", True
 
-    def generate_explanation(self, features_dict, pred_price, contributions, force_simulation=False):
-        """Generate LLM explanation (or simulated if unavailable)."""
-        prompt = f"""Analist imobiliar: casă California cu venit {features_dict['MedInc']:.1f}, vârstă {features_dict['HouseAge']:.0f}a, camere {features_dict['AveRooms']:.1f}, dormitoare {features_dict['AveBedrms']:.0f}, populație {int(features_dict['Population'])}, ocupare {features_dict['AveOccup']:.1f}.
-
-Estimează preț (doar număr USD), explică 2-3 fraze simplu de ce, apoi ponderi 0-100% pentru fiecare dintre: MEDINC, HOUSEAGE, AVEROOMS, AVEBEDRMS, POPULATION, AVEOCCUP, LATITUDE, LONGITUDE (suma=100%).
-
-Final: [PREDICTION: X] [MEDINC: %] [HOUSEAGE: %] [AVEROOMS: %] [AVEBEDRMS: %] [POPULATION: %] [AVEOCCUP: %] [LATITUDE: %] [LONGITUDE: %]
-
-Răspunde doar în blocul structurat și explicație. Limba: română."""
+    def generate_explanation(self, features_dict, pred_price, contributions, force_simulation=False, use_ollama=True):
+        """Generate LLM explanation (Ollama or Groq, fallback to simulated)."""
 
         if force_simulation:
             return self.generate_simulated_explanation(features_dict, pred_price, contributions)
 
-        response, is_sim = self.query_ollama(prompt)
+        # Try Ollama first (if use_ollama=True)
+        if use_ollama:
+            ollama_prompt = f"""ESTIMATE CALIFORNIA HOUSE PRICE FROM FEATURES ONLY
+
+You are a real estate analyst. Based ONLY on these house characteristics, estimate the market price.
+Do NOT reference any pre-existing price - calculate independently from the data provided.
+
+=== HOUSE CHARACTERISTICS (REAL DATA) ===
+Median Area Income: ${features_dict['MedInc']*10000:,.0f}/year
+House Age: {features_dict['HouseAge']:.0f} years
+Average Rooms: {features_dict['AveRooms']:.2f}
+Average Bedrooms: {features_dict['AveBedrms']:.2f}
+Area Population: {int(features_dict['Population'])} people
+Average Occupancy: {features_dict['AveOccup']:.1f} per household
+Latitude: {features_dict['Latitude']:.2f}°N (California ranges 32-42°N)
+Longitude: {features_dict['Longitude']:.2f}°W (California ranges -124 to -114°W)
+
+=== MARKET CONTEXT ===
+California house prices: $15,000 minimum to $500,000 maximum
+Key value drivers:
+- INCOME (45-50%): Wealthier areas = more expensive homes. Strong correlation.
+- ROOMS/SIZE (20-25%): More rooms = higher value
+- AGE (10-15%): Newer = more valuable
+- LOCATION (10-20%): Coastal (lon ~-122°W, lat ~37°N) has premium. Inland standard.
+- POPULATION (5-10%): Moderate density = stable; very high density mixed effects
+
+=== YOUR TASK ===
+1. Analyze each feature and its market impact
+2. Calculate a realistic price estimate (use the features as your data source)
+3. Explain your reasoning in 4-5 sentences (reference specific numbers from the data)
+4. Assign percentage weights to each factor (MUST SUM TO 100%)
+5. Provide your final price estimate
+
+=== OUTPUT FORMAT (MUST FOLLOW EXACTLY) ===
+
+[Explanation: 4-5 sentences analyzing the house characteristics and their impact on price]
+
+[MEDINC: ___] [HOUSEAGE: ___] [AVEROOMS: ___] [AVEBEDRMS: ___] [POPULATION: ___] [AVEOCCUP: ___] [LATITUDE: ___] [LONGITUDE: ___]
+
+[PREDICTION: $______]
+
+=== IMPORTANT ===
+Weights MUST be numbers ONLY (0-100), NOT dollar amounts.
+Example: [MEDINC: 47] NOT [MEDINC: $47,000]
+
+=== EXAMPLE ANALYSIS ===
+This California property is in an area with median income of $65,000/year. The house is 18 years old. It has 6.1 rooms and 1.0 bedrooms. Location at 37.5°N, -122°W is Bay Area coast premium.
+
+[MEDINC: 47] [HOUSEAGE: 12] [AVEROOMS: 25] [AVEBEDRMS: 8] [POPULATION: 5] [AVEOCCUP: 2] [LATITUDE: 1] [LONGITUDE: 0]
+
+[PREDICTION: $285000]
+
+=== YOUR RESPONSE ===
+Explain in 2-3 sentences. Then EXACTLY 8 numbers (sum to 100). Then price.
+Do NOT use dollar signs in weights. Only: [MEDINC: 45] etc."""
+
+            response, is_sim = self.query_ollama(ollama_prompt)
+            if response and not is_sim:
+                return response, is_sim
+
+        # Fallback to Groq
+        groq_prompt = f"""You are a real estate appraiser. Estimate the market price of this California house based on its features ALONE. Make your own calculation - don't copy references.
+
+HOUSE FEATURES:
+- Median household income: ${features_dict['MedInc']*10000:.0f}/year
+- House age: {features_dict['HouseAge']:.0f} years
+- Average rooms: {features_dict['AveRooms']:.2f}
+- Average bedrooms: {features_dict['AveBedrms']:.2f}
+- Area population: {int(features_dict['Population'])}
+- Average occupancy: {features_dict['AveOccup']:.1f} people
+- Latitude: {features_dict['Latitude']:.2f}° (CA: 32-42°N)
+- Longitude: {features_dict['Longitude']:.2f}° (CA: -124 to -114°W)
+
+CONTEXT: California house prices: $15K-$500K
+
+RESPOND WITH:
+1. Explain your price estimate (3-4 sentences with calculation logic)
+2. Factor weights (0-100%, sum=100%): [MEDINC: N] [HOUSEAGE: N] [AVEROOMS: N] [AVEBEDRMS: N] [POPULATION: N] [AVEOCCUP: N] [LATITUDE: N] [LONGITUDE: N]
+3. Your estimate: [PREDICTION: $X]"""
+
+        response, is_sim = self.query_groq(groq_prompt)
         if response and not is_sim:
             return response, is_sim
-        else:
-            return self.generate_simulated_explanation(features_dict, pred_price, contributions)
+
+        # Last resort: simulation
+        return self.generate_simulated_explanation(features_dict, pred_price, contributions)
 
     def parse_llm_explanation(self, text):
         """Extract keywords (keyword matching) and structured data (PREDICTION, weights)."""
@@ -260,23 +422,29 @@ Răspunde doar în blocul structurat și explicație. Limba: română."""
         llm_pred = None
         llm_weights = {name: 0.0 for name in self.feature_names}
 
-        # Extract prediction
-        pred_match = re.search(r'\[PREDICTION:\s*([\d\.,\s\$]+)\]', text, re.IGNORECASE)
+        # Extract prediction - MUST have [PREDICTION: ...] format
+        pred_match = re.search(r'\[PREDICTION:\s*\$?([\d,]+(?:\.\d+)?)\]', text, re.IGNORECASE)
         if pred_match:
-            pred_str = pred_match.group(1).replace('$', '').replace(',', '').replace(' ', '')
+            pred_str = pred_match.group(1).replace(',', '')
             try:
                 llm_pred = float(pred_str)
+                # Sanity check: price should be between $15K and $500K
+                if llm_pred < 15000 or llm_pred > 500000:
+                    llm_pred = None
             except ValueError:
                 pass
 
-        # Extract weights
+        # Extract weights - search for [WORD: NUM%] pattern
         weights_found = 0
         for name in self.feature_names:
-            pattern = r'\[' + re.escape(name.upper()) + r':\s*(\d+)%?\]'
+            # Match both [NAME: %] and [NAME: N%] formats
+            pattern = r'\[' + re.escape(name.upper()) + r':\s*(\d+)\s*%?\s*\]'
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 try:
-                    llm_weights[name] = float(match.group(1))
+                    val = float(match.group(1))
+                    # Cap at 100 to avoid inflated weights
+                    llm_weights[name] = min(val, 100)
                     weights_found += 1
                 except ValueError:
                     pass
@@ -357,8 +525,26 @@ Răspunde doar în blocul structurat și explicație. Limba: română."""
             "llm_prediction": llm_pred
         }
 
+    def generate_ideal_explanation(self, features_dict, real_factors, real_weights):
+        """Generate ideal explanation based on real factors for comparison."""
+        top_3 = real_factors[:3]
+        factor_text = ", ".join([FEATURE_MAP[f]['en'] for f in top_3])
+
+        ideal = f"This property's value is primarily driven by {factor_text}. "
+
+        if real_factors[0] == "MedInc":
+            ideal += f"The median income of ${features_dict['MedInc']*10000:,.0f}/year is a strong determinant. "
+        if "Latitude" in real_factors or "Longitude" in real_factors:
+            ideal += f"Location at {features_dict['Latitude']:.1f}°N, {features_dict['Longitude']:.1f}°W significantly impacts the valuation. "
+        if real_factors[0] in ["AveRooms", "AveBedrms"]:
+            ideal += f"The property has {features_dict['AveRooms']:.1f} rooms which affects the price. "
+        if real_factors[0] == "HouseAge":
+            ideal += f"The age of {features_dict['HouseAge']:.0f} years is a critical factor in determining market value."
+
+        return ideal
+
     def run_batch_evaluation(self, batch_size=30, force_simulation=False, progress_callback=None):
-        """Evaluate LLM consistency on batch_size test samples."""
+        """Evaluate LLM consistency on batch_size test samples with BLEU/ROUGE metrics."""
         if not self.is_trained:
             raise ValueError("Model not trained.")
 
@@ -372,7 +558,9 @@ Răspunde doar în blocul structurat și explicație. Limba: română."""
             "dist": 0.0,
             "hallucinations": 0,
             "valid_llm_preds": 0,
-            "llm_pe": 0.0
+            "llm_pe": 0.0,
+            "bleu": 0.0,
+            "rouge": 0.0
         }
 
         for idx, (db_idx, row) in enumerate(test_subset.iterrows()):
@@ -398,6 +586,19 @@ Răspunde doar în blocul structurat și explicație. Limba: română."""
                 totals["valid_llm_preds"] += 1
                 pe_str = f"{pe:.1f}%"
 
+            # Calculate text quality metrics (BLEU & ROUGE)
+            # Generate ideal explanation from real factors
+            ideal_explanation = self.generate_ideal_explanation(features, eval_res["top_real_factors"], eval_res["real_weights"])
+
+            bleu = calculate_bleu_score(ideal_explanation, explanation)
+            rouge = calculate_rouge_score(ideal_explanation, explanation)
+
+            totals["bleu"] += bleu
+            totals["rouge"] += rouge
+
+            # Extract explanation text (without prediction/weights tags)
+            explanation_text = explanation.split('[')[0].strip() if '[' in explanation else explanation[:200]
+
             logs.append({
                 "house_id": int(db_idx),
                 "actual_price": actual,
@@ -410,7 +611,11 @@ Răspunde doar în blocul structurat și explicație. Limba: română."""
                 "distribution_consistency": eval_res["distribution_consistency"],
                 "primary_recalled": eval_res["primary_recalled"],
                 "hallucinations": eval_res["hallucinations"],
-                "is_simulated": was_sim
+                "is_simulated": was_sim,
+                "bleu_score": bleu,
+                "rouge_score": rouge,
+                "ideal_explanation": ideal_explanation,
+                "llm_explanation_text": explanation_text
             })
 
             if progress_callback:
@@ -424,7 +629,9 @@ Răspunde doar în blocul structurat și explicație. Limba: română."""
             "avg_dist_consistency": totals["dist"] / batch_size,
             "avg_llm_prediction_error": (totals["llm_pe"] / totals["valid_llm_preds"]) if totals["valid_llm_preds"] > 0 else 0.0,
             "avg_hallucinations_per_house": totals["hallucinations"] / batch_size,
-            "total_hallucinations_count": totals["hallucinations"]
+            "total_hallucinations_count": totals["hallucinations"],
+            "avg_bleu_score": totals["bleu"] / batch_size,
+            "avg_rouge_score": totals["rouge"] / batch_size
         }
 
         return summary, logs

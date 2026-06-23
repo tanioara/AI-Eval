@@ -67,14 +67,17 @@ class HousingEvaluatorGUI:
         self.tab1 = ttk.Frame(self.notebook)
         self.tab2 = ttk.Frame(self.notebook)
         self.tab3 = ttk.Frame(self.notebook)
-        
+        self.tab4 = ttk.Frame(self.notebook)
+
         self.notebook.add(self.tab1, text="Predictie si Analiza Individuala")
         self.notebook.add(self.tab2, text="Harta Geografica XAI California")
         self.notebook.add(self.tab3, text="Evaluare Batch si Statistici")
-        
+        self.notebook.add(self.tab4, text="BLEU/ROUGE - Calitate Text LLM")
+
         self.setup_tab1()
         self.setup_tab2()
         self.setup_tab3()
+        self.setup_tab4()
 
     # ----------------- TAB 1: PREDICTIE SI ANALIZA INDIVIDUALA -----------------
     def setup_tab1(self):
@@ -275,7 +278,10 @@ class HousingEvaluatorGUI:
             
             # Desenare grafic de comparare ponderi in Tab 1
             self.draw_weights_comparison_plot(eval_res["real_weights"], eval_res["llm_weights"])
-            
+
+            # Update Tab 4 (BLEU/ROUGE Dashboard) cu datele actuale
+            self.update_bleu_rouge_dashboard(features, explanation_text, contributions, eval_res)
+
         except Exception as e:
             messagebox.showerror("Eroare", f"Nu s-a putut genera explicatia: {str(e)}")
         finally:
@@ -527,6 +533,170 @@ class HousingEvaluatorGUI:
             messagebox.showerror("Eroare", f"Nu s-a putut rula evaluarea: {str(e)}")
         finally:
             self.btn_batch.config(state="normal")
+
+    # --------- TAB 4: BLEU/ROUGE - CALITATE TEXT LLM ---------
+    def setup_tab4(self):
+        header_frame = ttk.Frame(self.tab4, style="Card.TFrame")
+        header_frame.pack(fill="x", padx=10, pady=5)
+
+        inner_header = ttk.Frame(header_frame, style="Card.TFrame")
+        inner_header.pack(fill="both", padx=10, pady=8)
+
+        ttk.Label(inner_header, text="Evaluare Calitate Explicatii LLM - BLEU si ROUGE Scores", style="Header.TLabel").pack(anchor="w", pady=(0, 5))
+        ttk.Label(inner_header, text="Selecteaza o casa din Tab 1, genereaza explicatia, apoi verifica metrici de text aici.", font=('Helvetica', 9), foreground="#9ca3af").pack(anchor="w")
+
+        # Frame pentru continut
+        content_frame = ttk.Frame(self.tab4, style="Card.TFrame")
+        content_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # Stanga: Explicatii
+        left_frame = ttk.Frame(content_frame, style="Card.TFrame")
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
+        ttk.Label(left_frame, text="Explicatia Ideala (din factori reali):", style="Header.TLabel").pack(anchor="w", pady=(5, 5))
+        self.txt_ideal_explanation = scrolledtext.ScrolledText(left_frame, height=6, width=50, bg="#1e2530", fg="#10b981", relief="flat", font=('Helvetica', 9), wrap=tk.WORD)
+        self.txt_ideal_explanation.pack(fill="both", expand=True, pady=(0, 10))
+
+        ttk.Label(left_frame, text="Explicatia LLM (din Tab 1):", style="Header.TLabel").pack(anchor="w", pady=(5, 5))
+        self.txt_llm_explanation_tab4 = scrolledtext.ScrolledText(left_frame, height=6, width=50, bg="#1e2530", fg="#f59e0b", relief="flat", font=('Helvetica', 9), wrap=tk.WORD)
+        self.txt_llm_explanation_tab4.pack(fill="both", expand=True)
+
+        # Dreapta: Metrici
+        right_frame = ttk.Frame(content_frame, style="Card.TFrame", width=280)
+        right_frame.pack(side="right", fill="both", expand=False, padx=(10, 0))
+        right_frame.pack_propagate(False)
+
+        ttk.Label(right_frame, text="METRICI DE CALITATE:", style="Header.TLabel").pack(anchor="w", pady=(5, 10))
+
+        # BLEU Score
+        bleu_frame = ttk.Frame(right_frame, style="Card.TFrame")
+        bleu_frame.pack(fill="x", pady=5)
+        ttk.Label(bleu_frame, text="BLEU Score:", style="CardText.TLabel", font=('Helvetica', 10, 'bold')).pack(anchor="w")
+        self.lbl_bleu_tab4 = ttk.Label(bleu_frame, text="-- %", font=('Helvetica', 24, 'bold'), foreground="#60a5fa")
+        self.lbl_bleu_tab4.pack(anchor="w")
+        ttk.Label(bleu_frame, text="Overlap de cuvinte/fraze cu explicatia ideala", style="CardText.TLabel", font=('Helvetica', 8)).pack(anchor="w")
+
+        # ROUGE Score
+        rouge_frame = ttk.Frame(right_frame, style="Card.TFrame")
+        rouge_frame.pack(fill="x", pady=5)
+        ttk.Label(rouge_frame, text="ROUGE Score:", style="CardText.TLabel", font=('Helvetica', 10, 'bold')).pack(anchor="w")
+        self.lbl_rouge_tab4 = ttk.Label(rouge_frame, text="-- %", font=('Helvetica', 24, 'bold'), foreground="#f87171")
+        self.lbl_rouge_tab4.pack(anchor="w")
+        ttk.Label(rouge_frame, text="Asemanare semantica cu explicatia ideala", style="CardText.TLabel", font=('Helvetica', 8)).pack(anchor="w")
+
+        # Interpretare
+        interp_frame = ttk.Frame(right_frame, style="Card.TFrame")
+        interp_frame.pack(fill="both", expand=True, pady=10)
+        ttk.Label(interp_frame, text="INTERPRETARE:", style="Header.TLabel").pack(anchor="w", pady=(5, 8))
+        self.txt_interpretation = scrolledtext.ScrolledText(interp_frame, height=8, width=35, bg="#1e2530", fg="#d1d5db", relief="flat", font=('Helvetica', 8), wrap=tk.WORD)
+        self.txt_interpretation.pack(fill="both", expand=True)
+
+    def update_bleu_rouge_dashboard(self, features, llm_explanation_text, contributions, eval_res):
+        """Update Tab4 dashboard cu datele actuale din Tab1"""
+        # Genereaza ideal explanation
+        ideal_explanation = self.generate_ideal_explanation(features, eval_res["top_real_factors"])
+
+        # Calculeaza BLEU si ROUGE
+        bleu = self.calculate_bleu_score(ideal_explanation, llm_explanation_text)
+        rouge = self.calculate_rouge_score(ideal_explanation, llm_explanation_text)
+
+        # Actualizeaza text boxes
+        self.txt_ideal_explanation.delete("1.0", tk.END)
+        self.txt_ideal_explanation.insert(tk.END, ideal_explanation)
+
+        llm_text_only = llm_explanation_text.split('[')[0].strip() if '[' in llm_explanation_text else llm_explanation_text[:300]
+        self.txt_llm_explanation_tab4.delete("1.0", tk.END)
+        self.txt_llm_explanation_tab4.insert(tk.END, llm_text_only)
+
+        # Actualizeaza scores
+        self.lbl_bleu_tab4.config(text=f"{bleu:.2f}%")
+        self.lbl_rouge_tab4.config(text=f"{rouge:.2f}%")
+
+        # Interpretare
+        interp = f"BLEU: {bleu:.2f}%\n"
+        if bleu < 5:
+            interp += "LLM foloseste cuvinte diferite decat templatul ideal - Normal in limbaj natural.\n\n"
+        else:
+            interp += "LLM se aliniaza bine cu cuvintele cheie ale explicatiei ideale.\n\n"
+
+        interp += f"ROUGE: {rouge:.2f}%\n"
+        if rouge > 20:
+            interp += "Asemanare semantica buna - LLM intelege conceptele relevante.\n\n"
+        else:
+            interp += "Asemanare semantica redusa - LLM poate discuta alte aspecte.\n\n"
+
+        interp += f"Factori reali: {', '.join([FEATURE_MAP[f]['ro'][:15] for f in eval_res['top_real_factors'][:3]])}"
+
+        self.txt_interpretation.delete("1.0", tk.END)
+        self.txt_interpretation.insert(tk.END, interp)
+
+    def generate_ideal_explanation(self, features, top_factors):
+        """Genereaza explicatia ideala bazata pe factori reali"""
+        top_3_labels = [FEATURE_MAP[f]['ro'] for f in top_factors[:3]]
+        factor_text = ", ".join(top_3_labels)
+
+        ideal = f"Valoarea proprietatii este condusa in principal de {factor_text}. "
+
+        if top_factors[0] == "MedInc":
+            ideal += f"Venitul mediu de ${features['MedInc']*10000:,.0f}/an este determinant puternic. "
+        if any(f in top_factors for f in ["Latitude", "Longitude"]):
+            ideal += f"Locatia la {features['Latitude']:.1f}°N, {features['Longitude']:.1f}°W impacteaza semnificativ. "
+        if top_factors[0] in ["AveRooms", "AveBedrms"]:
+            ideal += f"Dimensiunile proprietatii ({features['AveRooms']:.1f} camere) influienteaza pret. "
+
+        return ideal
+
+    def calculate_bleu_score(self, reference, generated, n=2):
+        """Calculeaza BLEU score (n-gram match)"""
+        ref_tokens = reference.lower().split()
+        gen_tokens = generated.lower().split()
+
+        if len(gen_tokens) == 0:
+            return 0.0
+
+        matches = 0
+        total = max(len(gen_tokens) - n + 1, 0)
+
+        if total == 0:
+            return 0.0
+
+        from collections import Counter
+        ref_ngrams = [' '.join(ref_tokens[i:i+n]) for i in range(len(ref_tokens) - n + 1)]
+        gen_ngrams = [' '.join(gen_tokens[i:i+n]) for i in range(len(gen_tokens) - n + 1)]
+
+        ref_counts = Counter(ref_ngrams)
+        gen_counts = Counter(gen_ngrams)
+
+        for ngram in gen_counts:
+            matches += min(gen_counts[ngram], ref_counts.get(ngram, 0))
+
+        return (matches / total) * 100 if total > 0 else 0.0
+
+    def calculate_rouge_score(self, reference, generated):
+        """Calculeaza ROUGE score (semantic overlap)"""
+        ref_tokens = reference.lower().split()
+        gen_tokens = generated.lower().split()
+
+        if len(ref_tokens) == 0 or len(gen_tokens) == 0:
+            return 0.0
+
+        # LCS-based scoring
+        def lcs_length(a, b):
+            m, n = len(a), len(b)
+            dp = [[0] * (n + 1) for _ in range(m + 1)]
+            for i in range(1, m + 1):
+                for j in range(1, n + 1):
+                    if a[i-1] == b[j-1]:
+                        dp[i][j] = dp[i-1][j-1] + 1
+                    else:
+                        dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+            return dp[m][n]
+
+        lcs = lcs_length(ref_tokens, gen_tokens)
+        recall = (lcs / len(ref_tokens)) * 100 if len(ref_tokens) > 0 else 0.0
+        precision = (lcs / len(gen_tokens)) * 100 if len(gen_tokens) > 0 else 0.0
+
+        return (recall + precision) / 2 if recall > 0 or precision > 0 else 0.0
 
 if __name__ == "__main__":
     # Eliminam afisarea ferestrei goale la matplotlib in fundal
