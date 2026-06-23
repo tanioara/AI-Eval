@@ -13,7 +13,7 @@ from model_utils import HousingEvaluatorBackend, FEATURE_MAP
 class HousingEvaluatorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Evaluator Consistenta Factuala LLM si XAI")
+        self.root.title("Housing Price Evaluator - LLM Factual Consistency & XAI")
         self.root.geometry("1100x850")
         
         self.backend = HousingEvaluatorBackend()
@@ -54,10 +54,10 @@ class HousingEvaluatorGUI:
         header_frame = ttk.Frame(self.root)
         header_frame.pack(fill="x", padx=15, pady=5)
         
-        title_label = ttk.Label(header_frame, text="Sistem de Evaluare a Consistentei Explicațiilor LLM si XAI", style="Title.TLabel")
+        title_label = ttk.Label(header_frame, text="Housing Price Evaluator - LLM Explanation Consistency & XAI", style="Title.TLabel")
         title_label.pack(anchor="w")
         
-        desc_label = ttk.Label(header_frame, text="Verificarea alinierii intre explicatiile calitative/ponderile LLM si importantele matematice locale", font=('Helvetica', 9))
+        desc_label = ttk.Label(header_frame, text="Verification of alignment between qualitative explanations/ponderile LLM and local mathematical importance weights", font=('Helvetica', 9))
         desc_label.pack(anchor="w")
         
         # Tabs control
@@ -65,18 +65,12 @@ class HousingEvaluatorGUI:
         self.notebook.pack(fill="both", expand=True, padx=15, pady=10)
         
         self.tab1 = ttk.Frame(self.notebook)
-        self.tab2 = ttk.Frame(self.notebook)
-        self.tab3 = ttk.Frame(self.notebook)
         self.tab4 = ttk.Frame(self.notebook)
 
-        self.notebook.add(self.tab1, text="Predictie si Analiza Individuala")
-        self.notebook.add(self.tab2, text="Harta Geografica XAI California")
-        self.notebook.add(self.tab3, text="Evaluare Batch si Statistici")
-        self.notebook.add(self.tab4, text="BLEU/ROUGE - Calitate Text LLM")
+        self.notebook.add(self.tab1, text="Individual Prediction & Analysis")
+        self.notebook.add(self.tab4, text="BLEU/ROUGE - LLM Text Quality")
 
         self.setup_tab1()
-        self.setup_tab2()
-        self.setup_tab3()
         self.setup_tab4()
 
     # ----------------- TAB 1: PREDICTIE SI ANALIZA INDIVIDUALA -----------------
@@ -88,14 +82,14 @@ class HousingEvaluatorGUI:
         inner_model = ttk.Frame(model_frame, style="Card.TFrame")
         inner_model.pack(fill="both", padx=10, pady=8)
         
-        ttk.Label(inner_model, text="Configurare Model Regresie", style="Header.TLabel").grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 5))
+        ttk.Label(inner_model, text="Regression Model Configuration", style="Header.TLabel").grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 5))
         
-        ttk.Label(inner_model, text="Procent date antrenare (%):", style="CardText.TLabel").grid(row=1, column=0, sticky="w")
+        ttk.Label(inner_model, text="Training data percentage (%):", style="CardText.TLabel").grid(row=1, column=0, sticky="w")
         self.spin_train_frac = ttk.Spinbox(inner_model, from_=10, to=100, increment=10, width=5)
         self.spin_train_frac.set(80)
         self.spin_train_frac.grid(row=1, column=1, sticky="w", padx=5)
         
-        btn_train = ttk.Button(inner_model, text="Antreneaza Model", command=self.train_on_fraction)
+        btn_train = ttk.Button(inner_model, text="Train Model", command=self.train_on_fraction)
         btn_train.grid(row=1, column=2, padx=15)
         
         self.lbl_train_stats = ttk.Label(inner_model, text="", style="CardText.TLabel")
@@ -109,19 +103,19 @@ class HousingEvaluatorGUI:
         inner_analysis = ttk.Frame(analysis_frame, style="Card.TFrame")
         inner_analysis.pack(fill="both", expand=True, padx=10, pady=8)
         
-        ttk.Label(inner_analysis, text="Analiza Proprietate Individuala si Aliniere LLM", style="Header.TLabel").grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 5))
+        ttk.Label(inner_analysis, text="Individual Property Analysis & LLM Alignment", style="Header.TLabel").grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 5))
         
         # Selectie casa
-        ttk.Label(inner_analysis, text="Selecteaza locuinta:", style="CardText.TLabel").grid(row=1, column=0, sticky="w")
+        ttk.Label(inner_analysis, text="Select property:", style="CardText.TLabel").grid(row=1, column=0, sticky="w")
         self.combo_houses = ttk.Combobox(inner_analysis, width=35, state="readonly")
         self.combo_houses.grid(row=1, column=1, sticky="w", padx=5)
         self.combo_houses.bind("<<ComboboxSelected>>", self.on_house_selected)
         
-        self.btn_explain = ttk.Button(inner_analysis, text="Estimeaza si Explica", command=self.explain_individual_house)
+        self.btn_explain = ttk.Button(inner_analysis, text="Estimate & Explain", command=self.explain_individual_house)
         self.btn_explain.grid(row=1, column=2, padx=10)
         
         self.force_sim_var = tk.BooleanVar(value=False)
-        chk_sim = ttk.Checkbutton(inner_analysis, text="Forțare mod simulat (test fără Ollama)", variable=self.force_sim_var)
+        chk_sim = ttk.Checkbutton(inner_analysis, text="Force simulation mode (test without Ollama)", variable=self.force_sim_var)
         chk_sim.grid(row=1, column=3, sticky="w", padx=10)
         
         # Grid layout pentru date, comparatie si grafic
@@ -152,19 +146,19 @@ class HousingEvaluatorGUI:
         self.canvas_weights.get_tk_widget().pack(fill="both", expand=True)
         
         # Explicatie text LLM
-        ttk.Label(inner_analysis, text="Explicatie generata si bloc structurat LLM:", style="CardText.TLabel").grid(row=3, column=0, columnspan=5, sticky="w", pady=(5, 2))
+        ttk.Label(inner_analysis, text="Generated explanation and structured LLM block:", style="CardText.TLabel").grid(row=3, column=0, columnspan=5, sticky="w", pady=(5, 2))
         self.txt_explanation = scrolledtext.ScrolledText(inner_analysis, height=4, width=105, bg="#1e2530", fg="#f3f4f6", relief="flat", font=('Helvetica', 9, 'italic'), wrap=tk.WORD)
         self.txt_explanation.grid(row=4, column=0, columnspan=5, sticky="w", pady=5)
         
         # Metrice consistenta
-        self.lbl_metrics_tab1 = ttk.Label(inner_analysis, text="Consistenta cuvinte cheie: neevaluata | Asemanare distributie ponderi (L1): neevaluata | Eroare estimare LLM: neevaluata", style="CardText.TLabel", font=('Helvetica', 9, 'bold'))
+        self.lbl_metrics_tab1 = ttk.Label(inner_analysis, text="Keyword consistency: unevaluated | Weight distribution similarity (L1): unevaluated | LLM estimation error: unevaluated", style="CardText.TLabel", font=('Helvetica', 9, 'bold'))
         self.lbl_metrics_tab1.grid(row=5, column=0, columnspan=5, sticky="w", pady=5)
 
     def update_train_stats_label(self):
         r2 = self.backend.metrics["r2"]
         mae = self.backend.metrics["mae"]
         size = self.backend.metrics["train_size"]
-        self.lbl_train_stats.config(text=f"R-patrat: {r2:.4f} | MAE: ${mae:,.0f} | Numar esantioane: {size}")
+        self.lbl_train_stats.config(text=f"R-patrat: {r2:.4f} | MAE: ${mae:,.0f} | Number of samples: {size}")
 
     def train_on_fraction(self):
         try:
@@ -172,17 +166,17 @@ class HousingEvaluatorGUI:
             if frac <= 0.0 or frac > 1.0:
                 raise ValueError
         except ValueError:
-            messagebox.showerror("Eroare", "Procentul date de antrenare trebuie sa fie intre 10 si 100.")
+            messagebox.showerror("Error", "Training percentage must be between 10 si 100.")
             return
             
         self.backend.train_model(train_fraction=frac)
         self.update_train_stats_label()
         self.load_houses_list()
-        messagebox.showinfo("Antrenare", "Modelul a fost antrenat pe fractiunea selectata.")
+        messagebox.showinfo("Training", "Model has been trained pe fractiunea selectata.")
             
     def load_houses_list(self):
         self.houses = self.backend.get_test_houses(n=50)
-        house_strings = [f"Casa ID {h['id']} - Pret Real: ${h['actual_price']:,.0f}" for h in self.houses]
+        house_strings = [f"Casa ID {h['id']} - Actual Price: ${h['actual_price']:,.0f}" for h in self.houses]
         self.combo_houses['values'] = house_strings
         if house_strings:
             self.combo_houses.current(0)
@@ -198,24 +192,24 @@ class HousingEvaluatorGUI:
         
         # Afisare date casa
         self.txt_house_details.delete("1.0", tk.END)
-        self.txt_house_details.insert(tk.END, "DATE PROPRIETATE:\n")
-        self.txt_house_details.insert(tk.END, f"Venit Median:    ${features['MedInc']*10:.1f}k/an\n")
-        self.txt_house_details.insert(tk.END, f"Varsta Medie:    {features['HouseAge']:.0f} ani\n")
-        self.txt_house_details.insert(tk.END, f"Numar Camere:    {features['AveRooms']:.2f}\n")
-        self.txt_house_details.insert(tk.END, f"Dormitoare:      {features['AveBedrms']:.2f}\n")
-        self.txt_house_details.insert(tk.END, f"Populatie Zona:  {int(features['Population'])}\n")
-        self.txt_house_details.insert(tk.END, f"Ocupare Medie:   {features['AveOccup']:.2f}\n")
-        self.txt_house_details.insert(tk.END, f"Coordonate:      {features['Latitude']:.2f}N, {features['Longitude']:.2f}W")
+        self.txt_house_details.insert(tk.END, "PROPERTY YESTA:\n")
+        self.txt_house_details.insert(tk.END, f"Median Income:    ${features['MedInc']*10:.1f}k/an\n")
+        self.txt_house_details.insert(tk.END, f"House Age:    {features['HouseAge']:.0f} ani\n")
+        self.txt_house_details.insert(tk.END, f"Number of Rooms:    {features['AveRooms']:.2f}\n")
+        self.txt_house_details.insert(tk.END, f"Bedrooms:      {features['AveBedrms']:.2f}\n")
+        self.txt_house_details.insert(tk.END, f"Area Population:  {int(features['Population'])}\n")
+        self.txt_house_details.insert(tk.END, f"Average Occupancy:   {features['AveOccup']:.2f}\n")
+        self.txt_house_details.insert(tk.END, f"Coordinates:      {features['Latitude']:.2f}N, {features['Longitude']:.2f}W")
         
         self.txt_price_comparison.delete("1.0", tk.END)
-        self.txt_price_comparison.insert(tk.END, "ESTIMARI DE PRET:\n")
-        self.txt_price_comparison.insert(tk.END, f"Pret Real:       ${house['actual_price']:,.0f}\n")
-        self.txt_price_comparison.insert(tk.END, f"Pret Model RF:   ${house['predicted_price']:,.0f}\n")
-        self.txt_price_comparison.insert(tk.END, "Pret Estimare LLM: Necalculat\n")
-        self.txt_price_comparison.insert(tk.END, "Eroare Pret LLM:  Necalculat")
+        self.txt_price_comparison.insert(tk.END, "PRICE ESTIMATES:\n")
+        self.txt_price_comparison.insert(tk.END, f"Actual Price:       ${house['actual_price']:,.0f}\n")
+        self.txt_price_comparison.insert(tk.END, f"ML Model Price:   ${house['predicted_price']:,.0f}\n")
+        self.txt_price_comparison.insert(tk.END, "LLM Estimate: Not calculated\n")
+        self.txt_price_comparison.insert(tk.END, "LLM Price Error:  Not calculated")
         
         self.txt_explanation.delete("1.0", tk.END)
-        self.lbl_metrics_tab1.config(text="Consistenta cuvinte cheie: neevaluata | Asemanare distributie ponderi (L1): neevaluata | Eroare estimare LLM: neevaluata")
+        self.lbl_metrics_tab1.config(text="Keyword consistency: unevaluated | Weight distribution similarity (L1): unevaluated | LLM estimation error: unevaluated")
         
         # Initializare complot gol
         self.ax_weights.clear()
@@ -255,25 +249,25 @@ class HousingEvaluatorGUI:
             actual_price = house["actual_price"]
             
             self.txt_price_comparison.delete("1.0", tk.END)
-            self.txt_price_comparison.insert(tk.END, "ESTIMARI DE PRET:\n")
-            self.txt_price_comparison.insert(tk.END, f"Pret Real:       ${actual_price:,.0f}\n")
-            self.txt_price_comparison.insert(tk.END, f"Pret Model RF:   ${pred_price:,.0f}\n")
+            self.txt_price_comparison.insert(tk.END, "PRICE ESTIMATES:\n")
+            self.txt_price_comparison.insert(tk.END, f"Actual Price:       ${actual_price:,.0f}\n")
+            self.txt_price_comparison.insert(tk.END, f"ML Model Price:   ${pred_price:,.0f}\n")
             
             if llm_pred is not None:
                 pe = abs(llm_pred - actual_price) / actual_price * 100.0
-                self.txt_price_comparison.insert(tk.END, f"Pret Estimare LLM: ${llm_pred:,.0f}\n")
-                self.txt_price_comparison.insert(tk.END, f"Eroare Pret LLM:   {pe:.1f}%\n")
+                self.txt_price_comparison.insert(tk.END, f"LLM Estimate: ${llm_pred:,.0f}\n")
+                self.txt_price_comparison.insert(tk.END, f"LLM Price Error:   {pe:.1f}%\n")
                 err_text = f"{pe:.1f}%"
             else:
-                self.txt_price_comparison.insert(tk.END, "Pret Estimare LLM: N/A (Eroare format)\n")
-                self.txt_price_comparison.insert(tk.END, "Eroare Pret LLM:   N/A\n")
+                self.txt_price_comparison.insert(tk.END, "LLM Estimate: N/A (Error format)\n")
+                self.txt_price_comparison.insert(tk.END, "LLM Price Error:   N/A\n")
                 err_text = "N/A"
                 
             # Afisare metrice in text
             cons_pct = eval_res['factual_consistency'] * 100.0
             dist_pct = eval_res['distribution_consistency']
             self.lbl_metrics_tab1.config(
-                text=f"Consistenta cuvinte cheie: {cons_pct:.1f}% | Asemanare ponderi (L1): {dist_pct:.1f}% | Eroare pret LLM: {err_text}"
+                text=f"Keyword consistency: {cons_pct:.1f}% | Asemanare ponderi (L1): {dist_pct:.1f}% | Error pret LLM: {err_text}"
             )
             
             # Desenare grafic de comparare ponderi in Tab 1
@@ -283,7 +277,7 @@ class HousingEvaluatorGUI:
             self.update_bleu_rouge_dashboard(features, explanation_text, contributions, eval_res)
 
         except Exception as e:
-            messagebox.showerror("Eroare", f"Nu s-a putut genera explicatia: {str(e)}")
+            messagebox.showerror("Error", f"Could not generate explanation: {str(e)}")
         finally:
             self.btn_explain.config(state="normal")
             
@@ -310,231 +304,7 @@ class HousingEvaluatorGUI:
         self.fig_weights.tight_layout()
         self.canvas_weights.draw()
 
-    # ----------------- TAB 2: HARTA GEOGRAFICA XAI -----------------
-    def setup_tab2(self):
-        # Panou configurare harta
-        map_control = ttk.Frame(self.tab2, style="Card.TFrame")
-        map_control.pack(fill="x", padx=10, pady=5)
-        
-        inner_map = ttk.Frame(map_control, style="Card.TFrame")
-        inner_map.pack(fill="both", padx=10, pady=8)
-        
-        ttk.Label(inner_map, text="Configurare Vizualizare Spatiala XAI (Coordonate California)", style="Header.TLabel").grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
-        
-        ttk.Label(inner_map, text="Coloreaza punctele de pe harta dupa:", style="CardText.TLabel").grid(row=1, column=0, sticky="w")
-        
-        self.combo_map_color = ttk.Combobox(inner_map, width=30, state="readonly")
-        self.combo_map_color['values'] = [
-            "Pret Real",
-            "Pret Prezis (Random Forest)",
-            "Eroare Model (Absoluta)",
-            "Factor Dominant (Model ML)",
-            "Factor Dominant (LLM Estimare)"
-        ]
-        self.combo_map_color.current(0)
-        self.combo_map_color.grid(row=1, column=1, sticky="w", padx=10)
-        self.combo_map_color.bind("<<ComboboxSelected>>", lambda e: self.draw_geographic_map())
-        
-        btn_draw_map = ttk.Button(inner_map, text="Deseneaza Harta", command=self.draw_geographic_map)
-        btn_draw_map.grid(row=1, column=2, padx=15)
-        
-        # Frame pentru canvas
-        self.map_canvas_frame = ttk.Frame(self.tab2, style="Card.TFrame")
-        self.map_canvas_frame.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        self.fig_map, self.ax_map = plt.subplots(figsize=(7, 5))
-        self.fig_map.patch.set_facecolor('#1e2530')
-        self.ax_map.set_facecolor('#273142')
-        
-        self.canvas_map = FigureCanvasTkAgg(self.fig_map, master=self.map_canvas_frame)
-        self.canvas_widget = self.canvas_map.get_tk_widget()
-        self.canvas_widget.pack(fill="both", expand=True)
-        
-        self.toolbar_map = NavigationToolbar2Tk(self.canvas_map, self.map_canvas_frame)
-        self.toolbar_map.update()
-        self.toolbar_map.pack(fill="x", side="bottom")
-
-    def draw_geographic_map(self):
-        if not self.backend.is_trained:
-            messagebox.showwarning("Atentie", "Modelul trebuie sa fie antrenat mai intai.")
-            return
-            
-        self.ax_map.clear()
-        
-        # Extragem esantioanele din setul de test (folosim primele 100 de case pentru a avea o densitate mai buna)
-        test_subset = self.backend.X_test.head(100)
-        y_subset = self.backend.y_test.head(100)
-        
-        lats = test_subset["Latitude"].values
-        lons = test_subset["Longitude"].values
-        
-        color_option = self.combo_map_color.get()
-        
-        if color_option == "Pret Real":
-            prices = y_subset.values / 1000.0 # Convertit in mii dolari pentru lizibilitate
-            sc = self.ax_map.scatter(lons, lats, c=prices, cmap="coolwarm", s=35, alpha=0.8, edgecolor="none")
-            cbar = self.fig_map.colorbar(sc, ax=self.ax_map, shrink=0.8)
-            cbar.set_label("Pret Real (mii $)", color=self.fg_color, fontsize=8)
-            cbar.ax.yaxis.set_tick_params(color=self.fg_color, labelcolor=self.fg_color)
-            self.ax_map.set_title("Harta Geografica a Preturilor Reale in California", color=self.fg_color, fontsize=10)
-            
-        elif color_option == "Pret Prezis (Random Forest)":
-            preds = self.backend.model.predict(test_subset) / 1000.0
-            sc = self.ax_map.scatter(lons, lats, c=preds, cmap="coolwarm", s=35, alpha=0.8, edgecolor="none")
-            cbar = self.fig_map.colorbar(sc, ax=self.ax_map, shrink=0.8)
-            cbar.set_label("Pret Prezis (mii $)", color=self.fg_color, fontsize=8)
-            cbar.ax.yaxis.set_tick_params(color=self.fg_color, labelcolor=self.fg_color)
-            self.ax_map.set_title("Harta Preturilor Prezise de Modelul ML", color=self.fg_color, fontsize=10)
-            
-        elif color_option == "Eroare Model (Absoluta)":
-            preds = self.backend.model.predict(test_subset)
-            errors = np.abs(preds - y_subset.values) / 1000.0
-            sc = self.ax_map.scatter(lons, lats, c=errors, cmap="YlOrRd", s=35, alpha=0.8, edgecolor="none")
-            cbar = self.fig_map.colorbar(sc, ax=self.ax_map, shrink=0.8)
-            cbar.set_label("Eroare Absoluta (mii $)", color=self.fg_color, fontsize=8)
-            cbar.ax.yaxis.set_tick_params(color=self.fg_color, labelcolor=self.fg_color)
-            self.ax_map.set_title("Distributia Erorilor Absolute ale Modelului ML", color=self.fg_color, fontsize=10)
-            
-        elif color_option == "Factor Dominant (Model ML)":
-            # Pentru fiecare dintre cele 100 de case, calculam contributiile si vedem factorul cel mai important (ponderea maxima)
-            dominant_features = []
-            features_list = self.backend.feature_names
-            
-            for idx, row in test_subset.iterrows():
-                _, _, contribs = self.backend.get_local_contributions(row.to_dict())
-                # Gasim caracteristica cu contributia absoluta maxima
-                max_feat = max(contribs.keys(), key=lambda k: abs(contribs[k]))
-                dominant_features.append(max_feat)
-                
-            self.plot_categorical_scatter(lons, lats, dominant_features, "Model ML")
-            
-        elif color_option == "Factor Dominant (LLM Estimare)":
-            # Obtinem factorul dominant indicat de LLM (folosind simulatorul rapid pentru harta)
-            dominant_features = []
-            for idx, row in test_subset.iterrows():
-                _, _, contribs = self.backend.get_local_contributions(row.to_dict())
-                # Pentru harta generam in mod simulat deoarece apelarea a 100 de instante Ollama ar dura minute bune
-                explanation, _ = self.backend.generate_explanation(row.to_dict(), 0.0, contribs, force_simulation=True)
-                parsed = self.backend.parse_llm_explanation(explanation)
-                llm_w = parsed["llm_weights"]
-                max_feat = max(llm_w.keys(), key=lambda k: llm_w[k])
-                dominant_features.append(max_feat)
-                
-            self.plot_categorical_scatter(lons, lats, dominant_features, "LLM Estimare")
-
-        self.ax_map.set_xlabel("Longitudine", color=self.fg_color, fontsize=8)
-        self.ax_map.set_ylabel("Latitudine", color=self.fg_color, fontsize=8)
-        self.ax_map.tick_params(colors=self.fg_color, labelsize=8)
-        self.fig_map.tight_layout()
-        self.canvas_map.draw()
-
-    def plot_categorical_scatter(self, lons, lats, categories, source_name):
-        feature_colors = {
-            "MedInc": "#f87171",     # Rosu deschis
-            "HouseAge": "#60a5fa",    # Albastru
-            "AveRooms": "#34d399",    # Verde
-            "AveBedrms": "#fbbf24",   # Portocaliu
-            "Population": "#c084fc",  # Violet
-            "AveOccup": "#f472b6",    # Roz
-            "Latitude": "#2dd4bf",    # Teal
-            "Longitude": "#22d3ee"    # Cyan
-        }
-        
-        unique_cats = sorted(list(set(categories)))
-        
-        for cat in unique_cats:
-            indices = [i for i, c in enumerate(categories) if c == cat]
-            cat_lons = lons[indices]
-            cat_lats = lats[indices]
-            
-            color = feature_colors.get(cat, "#9ca3af")
-            label = FEATURE_MAP[cat]["ro"]
-            
-            self.ax_map.scatter(cat_lons, cat_lats, color=color, label=label, s=40, alpha=0.85, edgecolor="none")
-            
-        self.ax_map.legend(facecolor='#273142', edgecolor='none', labelcolor=self.fg_color, fontsize=8, loc="upper right")
-        self.ax_map.set_title(f"Harta Spatiala XAI: Factorul Local cel mai Influent ({source_name})", color=self.fg_color, fontsize=10)
-
-    # ----------------- TAB 3: EVALUARE BATCH SI STATISTICI -----------------
-    def setup_tab3(self):
-        batch_control = ttk.Frame(self.tab3, style="Card.TFrame")
-        batch_control.pack(fill="x", padx=10, pady=5)
-        
-        inner_batch = ttk.Frame(batch_control, style="Card.TFrame")
-        inner_batch.pack(fill="both", padx=10, pady=8)
-        
-        ttk.Label(inner_batch, text="Evaluare Batch Completa si Analiza Distributiei", style="Header.TLabel").grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
-        
-        ttk.Label(inner_batch, text="Numar locatii pentru testare batch:", style="CardText.TLabel").grid(row=1, column=0, sticky="w")
-        self.spin_batch_size = ttk.Spinbox(inner_batch, from_=10, to=50, width=5)
-        self.spin_batch_size.set(30)
-        self.spin_batch_size.grid(row=1, column=1, sticky="w", padx=5)
-        
-        self.btn_batch = ttk.Button(inner_batch, text="Ruleaza Evaluare Batch", command=self.run_batch_evaluation)
-        self.btn_batch.grid(row=1, column=2, padx=15)
-        
-        self.lbl_batch_status = ttk.Label(inner_batch, text="Stare: In asteptare", style="CardText.TLabel")
-        self.lbl_batch_status.grid(row=1, column=3, sticky="e")
-        
-        # ScrolledText pentru loguri si rezultate batch
-        self.txt_batch_logs = scrolledtext.ScrolledText(self.tab3, height=20, width=115, bg="#1e2530", fg="#f3f4f6", relief="flat", font=('Courier', 9))
-        self.txt_batch_logs.pack(fill="both", expand=True, padx=10, pady=5)
-
-    def run_batch_evaluation(self):
-        try:
-            size = int(self.spin_batch_size.get())
-        except ValueError:
-            messagebox.showerror("Eroare", "Numarul introdus este invalid.")
-            return
-            
-        self.btn_batch.config(state="disabled")
-        self.lbl_batch_status.config(text="Stare: Se calculeaza...")
-        self.root.update()
-        
-        try:
-            force_sim = self.force_sim_var.get()
-            
-            def update_cb(curr, tot):
-                self.lbl_batch_status.config(text=f"Stare: {curr}/{tot} case procesate")
-                self.root.update()
-                
-            summary, logs = self.backend.run_batch_evaluation(
-                batch_size=size,
-                force_simulation=force_sim,
-                progress_callback=update_cb
-            )
-            
-            # Afisare rezultate
-            self.txt_batch_logs.delete("1.0", tk.END)
-            self.txt_batch_logs.insert(tk.END, "RAPORT EVALUARE BATCH:\n")
-            self.txt_batch_logs.insert(tk.END, "="*95 + "\n")
-            self.txt_batch_logs.insert(tk.END, f"Numar total case analizate:       {summary['batch_size']}\n")
-            self.txt_batch_logs.insert(tk.END, f"Consistenta Calitativa Medie:     {summary['avg_consistency_rate']:.1f}%\n")
-            self.txt_batch_logs.insert(tk.END, f"Recall Factor Primar Mediu:       {summary['avg_primary_recall_rate']:.1f}%\n")
-            self.txt_batch_logs.insert(tk.END, f"Consistenta Distributie Ponderi:  {summary['avg_dist_consistency']:.1f}%\n")
-            self.txt_batch_logs.insert(tk.END, f"Eroare Absoluta Medie Pret LLM:   {summary['avg_llm_prediction_error']:.1f}%\n")
-            self.txt_batch_logs.insert(tk.END, f"Medie halucinatii per locuinta:   {summary['avg_hallucinations_per_house']:.2f}\n")
-            self.txt_batch_logs.insert(tk.END, "="*95 + "\n\n")
-            
-            self.txt_batch_logs.insert(tk.END, f"{'ID':<6} | {'Pret Real':<11} | {'Pret Model':<11} | {'Pret LLM':<11} | {'Eroare LLM':<10} | {'Consist. (TVD)':<14} | {'Recall':<6} | {'Halucinatii'}\n")
-            self.txt_batch_logs.insert(tk.END, "-"*105 + "\n")
-            
-            for l in logs:
-                rec_str = "DA" if l["primary_recalled"] else "NU"
-                hall_str = ", ".join([FEATURE_MAP[f]["ro"][:10] for f in l["hallucinations"]]) if l["hallucinations"] else "Niciuna"
-                llm_p_str = f"${l['llm_prediction']:,.0f}" if l['llm_prediction'] > 0 else "N/A"
-                
-                self.txt_batch_logs.insert(tk.END, f"{l['house_id']:<6} | ${l['actual_price']:<10,.0f} | ${l['predicted_price']:<10,.0f} | {llm_p_str:<11} | {l['llm_pe_str']:<10} | {l['distribution_consistency']:<13.1f}% | {rec_str:<6} | {hall_str}\n")
-                
-            self.lbl_batch_status.config(text="Stare: Finalizat")
-            
-        except Exception as e:
-            self.lbl_batch_status.config(text="Stare: Eroare")
-            messagebox.showerror("Eroare", f"Nu s-a putut rula evaluarea: {str(e)}")
-        finally:
-            self.btn_batch.config(state="normal")
-
-    # --------- TAB 4: BLEU/ROUGE - CALITATE TEXT LLM ---------
+# --------- TAB 4: BLEU/ROUGE - CALITATE TEXT LLM ---------
     def setup_tab4(self):
         header_frame = ttk.Frame(self.tab4, style="Card.TFrame")
         header_frame.pack(fill="x", padx=10, pady=5)
@@ -542,14 +312,22 @@ class HousingEvaluatorGUI:
         inner_header = ttk.Frame(header_frame, style="Card.TFrame")
         inner_header.pack(fill="both", padx=10, pady=8)
 
-        ttk.Label(inner_header, text="Evaluare Calitate Explicatii LLM - BLEU si ROUGE Scores", style="Header.TLabel").pack(anchor="w", pady=(0, 5))
-        ttk.Label(inner_header, text="Selecteaza o casa din Tab 1, genereaza explicatia, apoi verifica metrici de text aici.", font=('Helvetica', 9), foreground="#9ca3af").pack(anchor="w")
+        ttk.Label(inner_header, text="LLM Text Quality Evaluation - BLEU & ROUGE Analysis", style="Header.TLabel").pack(anchor="w", pady=(0, 5))
+        ttk.Label(inner_header, text="Compare ideal vs LLM explanation. Green=ideal matches, Orange=LLM matches. Formulas show exact calculations.", font=('Helvetica', 9), foreground="#9ca3af").pack(anchor="w")
 
         # Frame pentru continut
         content_frame = ttk.Frame(self.tab4, style="Card.TFrame")
         content_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Stanga: Explicatii
+        # Top: Chart area
+        chart_frame = ttk.Frame(self.tab4, style="Card.TFrame")
+        chart_frame.pack(fill="x", padx=10, pady=5)
+
+        ttk.Label(chart_frame, text="Word Frequency & Complexity Analysis:", style="Header.TLabel").pack(anchor="w", pady=(5, 5))
+        self.chart_display = tk.Text(chart_frame, height=6, width=120, bg="#1e2530", fg="#d1d5db", relief="flat", font=('Courier', 8))
+        self.chart_display.pack(fill="both")
+
+        # Left: Explicatii
         left_frame = ttk.Frame(content_frame, style="Card.TFrame")
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
@@ -566,88 +344,257 @@ class HousingEvaluatorGUI:
         right_frame.pack(side="right", fill="both", expand=False, padx=(10, 0))
         right_frame.pack_propagate(False)
 
-        ttk.Label(right_frame, text="METRICI DE CALITATE:", style="Header.TLabel").pack(anchor="w", pady=(5, 10))
+        ttk.Label(right_frame, text="TEXT QUALITY METRICS:", style="Header.TLabel").pack(anchor="w", pady=(5, 10))
 
-        # BLEU Score
+        # BLEU Score with progress bar
         bleu_frame = ttk.Frame(right_frame, style="Card.TFrame")
         bleu_frame.pack(fill="x", pady=5)
-        ttk.Label(bleu_frame, text="BLEU Score:", style="CardText.TLabel", font=('Helvetica', 10, 'bold')).pack(anchor="w")
-        self.lbl_bleu_tab4 = ttk.Label(bleu_frame, text="-- %", font=('Helvetica', 24, 'bold'), foreground="#60a5fa")
+        ttk.Label(bleu_frame, text="BLEU Score (N-gram):", style="CardText.TLabel", font=('Helvetica', 10, 'bold')).pack(anchor="w")
+        self.lbl_bleu_tab4 = ttk.Label(bleu_frame, text="-- %", font=('Helvetica', 20, 'bold'), foreground="#60a5fa")
         self.lbl_bleu_tab4.pack(anchor="w")
-        ttk.Label(bleu_frame, text="Overlap de cuvinte/fraze cu explicatia ideala", style="CardText.TLabel", font=('Helvetica', 8)).pack(anchor="w")
 
-        # ROUGE Score
+        # BLEU Progress bar
+        self.prog_bleu = ttk.Progressbar(bleu_frame, length=200, mode='determinate', maximum=100)
+        self.prog_bleu.pack(fill="x", pady=3)
+
+        ttk.Label(bleu_frame, text="Phrase matching (2-word overlap)", style="CardText.TLabel", font=('Helvetica', 8)).pack(anchor="w")
+
+        # ROUGE Score with progress bar
         rouge_frame = ttk.Frame(right_frame, style="Card.TFrame")
         rouge_frame.pack(fill="x", pady=5)
-        ttk.Label(rouge_frame, text="ROUGE Score:", style="CardText.TLabel", font=('Helvetica', 10, 'bold')).pack(anchor="w")
-        self.lbl_rouge_tab4 = ttk.Label(rouge_frame, text="-- %", font=('Helvetica', 24, 'bold'), foreground="#f87171")
+        ttk.Label(rouge_frame, text="ROUGE Score (LCS):", style="CardText.TLabel", font=('Helvetica', 10, 'bold')).pack(anchor="w")
+        self.lbl_rouge_tab4 = ttk.Label(rouge_frame, text="-- %", font=('Helvetica', 20, 'bold'), foreground="#f87171")
         self.lbl_rouge_tab4.pack(anchor="w")
-        ttk.Label(rouge_frame, text="Asemanare semantica cu explicatia ideala", style="CardText.TLabel", font=('Helvetica', 8)).pack(anchor="w")
 
-        # Interpretare
+        # ROUGE Progress bar
+        self.prog_rouge = ttk.Progressbar(rouge_frame, length=200, mode='determinate', maximum=100)
+        self.prog_rouge.pack(fill="x", pady=3)
+
+        ttk.Label(rouge_frame, text="Semantic overlap (content similarity)", style="CardText.TLabel", font=('Helvetica', 8)).pack(anchor="w")
+
+        # Quality Score section
+        quality_frame = ttk.Frame(right_frame, style="Card.TFrame")
+        quality_frame.pack(fill="x", pady=5)
+        ttk.Label(quality_frame, text="OVERALL QUALITY:", style="Header.TLabel").pack(anchor="w")
+        self.lbl_quality_score = ttk.Label(quality_frame, text="-- %", font=('Helvetica', 18, 'bold'), foreground="#8b5cf6")
+        self.lbl_quality_score.pack(anchor="w")
+        self.prog_quality = ttk.Progressbar(quality_frame, length=200, mode='determinate', maximum=100)
+        self.prog_quality.pack(fill="x", pady=3)
+        self.lbl_quality_text = ttk.Label(quality_frame, text="", style="CardText.TLabel", font=('Helvetica', 8))
+        self.lbl_quality_text.pack(anchor="w")
+
+        # Stats and Interpretation
         interp_frame = ttk.Frame(right_frame, style="Card.TFrame")
         interp_frame.pack(fill="both", expand=True, pady=10)
-        ttk.Label(interp_frame, text="INTERPRETARE:", style="Header.TLabel").pack(anchor="w", pady=(5, 8))
-        self.txt_interpretation = scrolledtext.ScrolledText(interp_frame, height=8, width=35, bg="#1e2530", fg="#d1d5db", relief="flat", font=('Helvetica', 8), wrap=tk.WORD)
+
+        stats_label = ttk.Label(interp_frame, text="DETAILED ANALYSIS:", style="Header.TLabel")
+        stats_label.pack(anchor="w", pady=(5, 3))
+
+        self.txt_interpretation = scrolledtext.ScrolledText(interp_frame, height=10, width=35, bg="#1e2530", fg="#d1d5db", relief="flat", font=('Helvetica', 7, 'bold'), wrap=tk.WORD)
         self.txt_interpretation.pack(fill="both", expand=True)
 
+        # Add buttons for interaction
+        btn_frame = ttk.Frame(right_frame, style="Card.TFrame")
+        btn_frame.pack(fill="x", pady=(5, 0))
+        ttk.Button(btn_frame, text="Copy", command=self.copy_comparison).pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="Details", command=self.show_detailed_analysis).pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="Factors", command=self.show_factor_analysis).pack(side="left", padx=2)
+
     def update_bleu_rouge_dashboard(self, features, llm_explanation_text, contributions, eval_res):
-        """Update Tab4 dashboard cu datele actuale din Tab1"""
-        # Genereaza ideal explanation
+        """Update Tab4 with detailed BLEU/ROUGE calculation breakdown + interactive highlighting"""
+        # Generate ideal explanation
         ideal_explanation = self.generate_ideal_explanation(features, eval_res["top_real_factors"])
 
-        # Calculeaza BLEU si ROUGE
+        # Calculate BLEU and ROUGE
         bleu = self.calculate_bleu_score(ideal_explanation, llm_explanation_text)
         rouge = self.calculate_rouge_score(ideal_explanation, llm_explanation_text)
 
-        # Actualizeaza text boxes
+        # Extract text portions
+        llm_text_only = llm_explanation_text.split('[')[0].strip() if '[' in llm_explanation_text else llm_explanation_text[:400]
+
+        # Configure highlighting tags
+        self.txt_ideal_explanation.tag_configure("match", background="#10b981", foreground="white", font=('Helvetica', 9, 'bold'))
+        self.txt_llm_explanation_tab4.tag_configure("match", background="#f59e0b", foreground="white", font=('Helvetica', 9, 'bold'))
+
+        # Display ideal explanation
         self.txt_ideal_explanation.delete("1.0", tk.END)
         self.txt_ideal_explanation.insert(tk.END, ideal_explanation)
 
-        llm_text_only = llm_explanation_text.split('[')[0].strip() if '[' in llm_explanation_text else llm_explanation_text[:300]
+        # Display LLM explanation
         self.txt_llm_explanation_tab4.delete("1.0", tk.END)
         self.txt_llm_explanation_tab4.insert(tk.END, llm_text_only)
 
-        # Actualizeaza scores
-        self.lbl_bleu_tab4.config(text=f"{bleu:.2f}%")
-        self.lbl_rouge_tab4.config(text=f"{rouge:.2f}%")
+        # Highlight matching 2-grams in both texts
+        ideal_words = ideal_explanation.lower().split()
+        llm_words = llm_text_only.lower().split()
 
-        # Interpretare
-        interp = f"BLEU: {bleu:.2f}%\n"
-        if bleu < 5:
-            interp += "LLM foloseste cuvinte diferite decat templatul ideal - Normal in limbaj natural.\n\n"
+        # Find all 2-gram matches
+        ideal_2grams = set([' '.join(ideal_words[i:i+2]) for i in range(len(ideal_words)-1)])
+        llm_2grams = [' '.join(llm_words[i:i+2]) for i in range(len(llm_words)-1)]
+        matching_2grams = [ng for ng in llm_2grams if ng in ideal_2grams]
+
+        # Highlight in ideal explanation
+        for i in range(len(ideal_words)-1):
+            phrase = ' '.join(ideal_words[i:i+2])
+            if phrase in ideal_2grams:
+                for match_phrase in matching_2grams:
+                    if phrase.lower() == match_phrase.lower():
+                        idx = ideal_explanation.lower().find(phrase.lower())
+                        if idx >= 0:
+                            self.txt_ideal_explanation.tag_add("match", f"1.0+{idx}c", f"1.0+{idx+len(phrase)}c")
+                            break
+
+        # Highlight in LLM explanation
+        for i in range(len(llm_words)-1):
+            phrase = ' '.join(llm_words[i:i+2])
+            if phrase in ideal_2grams:
+                idx = llm_text_only.lower().find(phrase.lower())
+                if idx >= 0:
+                    self.txt_llm_explanation_tab4.tag_add("match", f"1.0+{idx}c", f"1.0+{idx+len(phrase)}c")
+
+        # Update scores and progress bars
+        self.lbl_bleu_tab4.config(text=f"{bleu:.1f}%")
+        self.lbl_rouge_tab4.config(text=f"{rouge:.1f}%")
+        self.prog_bleu['value'] = bleu
+        self.prog_rouge['value'] = rouge
+
+        # Store values for interactive features
+        self.current_bleu = bleu
+        self.current_rouge = rouge
+        self.current_ideal = ideal_explanation
+        self.current_llm = llm_text_only
+        self.current_contributions = contributions
+        self.current_top_factors = eval_res["top_real_factors"]
+
+        # Calculate overall quality score (weighted average)
+        # BLEU: 30%, ROUGE: 30%, Factual consistency: 40%
+        factual_consistency = eval_res.get("factual_consistency", 0) * 100
+        quality_score = (bleu * 0.3 + rouge * 0.3 + factual_consistency * 0.4)
+
+        self.lbl_quality_score.config(text=f"{quality_score:.1f}%")
+        self.prog_quality['value'] = quality_score
+
+        # Quality text recommendation
+        if quality_score >= 80:
+            quality_text = "Excellent: LLM explanation well-aligned with ML factors"
+        elif quality_score >= 60:
+            quality_text = "Good: Moderate alignment, some deviations"
+        elif quality_score >= 40:
+            quality_text = "Fair: Significant differences between ideal & LLM"
         else:
-            interp += "LLM se aliniaza bine cu cuvintele cheie ale explicatiei ideale.\n\n"
+            quality_text = "Poor: Major factual/conceptual misalignment"
 
-        interp += f"ROUGE: {rouge:.2f}%\n"
-        if rouge > 20:
-            interp += "Asemanare semantica buna - LLM intelege conceptele relevante.\n\n"
-        else:
-            interp += "Asemanare semantica redusa - LLM poate discuta alte aspecte.\n\n"
+        self.lbl_quality_text.config(text=quality_text)
 
-        interp += f"Factori reali: {', '.join([FEATURE_MAP[f]['ro'][:15] for f in eval_res['top_real_factors'][:3]])}"
+        # Get technical calculations
+        ideal_words = len(ideal_explanation.lower().split())
+        llm_words = len(llm_text_only.lower().split())
+
+        # Calculate LCS for ROUGE details
+        ref_tokens = ideal_explanation.lower().split()
+        gen_tokens = llm_text_only.lower().split()
+
+        def lcs_length(a, b):
+            m, n = len(a), len(b)
+            dp = [[0] * (n + 1) for _ in range(m + 1)]
+            for i in range(1, m + 1):
+                for j in range(1, n + 1):
+                    if a[i-1] == b[j-1]:
+                        dp[i][j] = dp[i-1][j-1] + 1
+                    else:
+                        dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+            return dp[m][n]
+
+        lcs = lcs_length(ref_tokens, gen_tokens)
+
+        # Engineering-level interpretation
+        interp = "TECHNICAL METRICS:\n"
+        interp += "="*32 + "\n\n"
+
+        interp += f"BLEU: {bleu:.2f}%\n"
+        interp += f"Formula: matches / total_ngrams\n"
+        interp += f"Details:\n"
+        interp += f"  Matches: {self.bleu_matches}\n"
+        interp += f"  2-grams: {self.bleu_total}\n"
+        interp += f"  = {self.bleu_matches}/{self.bleu_total} = {self.bleu_precision:.2f}%\n"
+        interp += f"Ref: {ideal_words} words\n"
+        interp += f"Gen: {llm_words} words\n"
+
+        interp += f"\nROUGE: {rouge:.2f}%\n"
+        interp += f"Formula: LCS / ref_words\n"
+        interp += f"Details:\n"
+        interp += f"  LCS length: {lcs}\n"
+        interp += f"  Ref words: {ideal_words}\n"
+        interp += f"  = {lcs}/{ideal_words} = {(lcs/ideal_words*100):.2f}%\n"
+        interp += f"Precision: {(lcs/llm_words*100):.2f}%\n"
+
+        interp += f"\nFactors: {', '.join([FEATURE_MAP[f]['en'][:8] for f in eval_res['top_real_factors'][:2]])}"
 
         self.txt_interpretation.delete("1.0", tk.END)
         self.txt_interpretation.insert(tk.END, interp)
 
-    def generate_ideal_explanation(self, features, top_factors):
-        """Genereaza explicatia ideala bazata pe factori reali"""
-        top_3_labels = [FEATURE_MAP[f]['ro'] for f in top_factors[:3]]
-        factor_text = ", ".join(top_3_labels)
+        # Generate complexity and frequency analysis
+        self.update_complexity_analysis(ideal_explanation, llm_text_only)
 
-        ideal = f"Valoarea proprietatii este condusa in principal de {factor_text}. "
+    def generate_ideal_explanation(self, features, top_factors, contributions=None):
+        """Generate detailed ideal explanation with actual contribution values"""
+        # Build accurate explanation with real data
+        ideal = ""
 
-        if top_factors[0] == "MedInc":
-            ideal += f"Venitul mediu de ${features['MedInc']*10000:,.0f}/an este determinant puternic. "
-        if any(f in top_factors for f in ["Latitude", "Longitude"]):
-            ideal += f"Locatia la {features['Latitude']:.1f}°N, {features['Longitude']:.1f}°W impacteaza semnificativ. "
-        if top_factors[0] in ["AveRooms", "AveBedrms"]:
-            ideal += f"Dimensiunile proprietatii ({features['AveRooms']:.1f} camere) influienteaza pret. "
+        # Primary factor analysis
+        if top_factors:
+            primary_factor = top_factors[0]
+            primary_label = FEATURE_MAP[primary_factor]['en']
+
+            if primary_factor == "MedInc":
+                income = features['MedInc'] * 10000
+                ideal += f"This property's primary value driver is location income level at ${income:,.0f}/year median household income. "
+                if income > 50000:
+                    ideal += "This high-income area supports strong property valuations. "
+                else:
+                    ideal += "This moderate income area represents standard property pricing. "
+
+            elif primary_factor == "HouseAge":
+                age = features['HouseAge']
+                ideal += f"Property age at {age:.0f} years is the dominant valuation factor. "
+                if age < 30:
+                    ideal += "Relatively modern construction supports higher values. "
+                else:
+                    ideal += "Older construction affects market valuation. "
+
+            elif primary_factor in ["AveRooms", "AveBedrms"]:
+                rooms = features['AveRooms']
+                ideal += f"Property size with {rooms:.2f} average rooms is the key value driver. "
+                if rooms > 6:
+                    ideal += "Larger properties command premium pricing. "
+                else:
+                    ideal += "Compact properties represent efficient living space. "
+
+            elif primary_factor in ["Latitude", "Longitude"]:
+                ideal += f"Geographic location at {features['Latitude']:.2f}°N, {features['Longitude']:.2f}°W is the primary pricing factor. "
+                if 37 <= features['Latitude'] <= 38 and -124 <= features['Longitude'] <= -121:
+                    ideal += "Bay Area coastal positioning provides significant premium value. "
+                elif features['Latitude'] < 34 or features['Latitude'] > 39:
+                    ideal += "Regional location affects competitive market pricing. "
+
+        # Secondary factors
+        if len(top_factors) > 1:
+            secondary = top_factors[1]
+            sec_label = FEATURE_MAP[secondary]['en']
+            ideal += f"Secondary impact from {sec_label.lower()}. "
+
+        if len(top_factors) > 2:
+            tertiary = top_factors[2]
+            tert_label = FEATURE_MAP[tertiary]['en']
+            ideal += f"Tertiary influence from {tert_label.lower()}. "
+
+        # Add context
+        ideal += "Combined analysis of these factors determines the property's market valuation."
 
         return ideal
 
     def calculate_bleu_score(self, reference, generated, n=2):
-        """Calculeaza BLEU score (n-gram match)"""
+        """Calculate BLEU score (n-gram match) with detailed breakdown"""
         ref_tokens = reference.lower().split()
         gen_tokens = generated.lower().split()
 
@@ -670,17 +617,24 @@ class HousingEvaluatorGUI:
         for ngram in gen_counts:
             matches += min(gen_counts[ngram], ref_counts.get(ngram, 0))
 
-        return (matches / total) * 100 if total > 0 else 0.0
+        bleu_score = (matches / total) * 100 if total > 0 else 0.0
+
+        # Store details for display
+        self.bleu_matches = matches
+        self.bleu_total = total
+        self.bleu_precision = bleu_score
+
+        return bleu_score
 
     def calculate_rouge_score(self, reference, generated):
-        """Calculeaza ROUGE score (semantic overlap)"""
+        """Calculate ROUGE score (LCS-based semantic overlap) with technical breakdown"""
         ref_tokens = reference.lower().split()
         gen_tokens = generated.lower().split()
 
         if len(ref_tokens) == 0 or len(gen_tokens) == 0:
             return 0.0
 
-        # LCS-based scoring
+        # LCS (Longest Common Subsequence) using dynamic programming
         def lcs_length(a, b):
             m, n = len(a), len(b)
             dp = [[0] * (n + 1) for _ in range(m + 1)]
@@ -697,6 +651,167 @@ class HousingEvaluatorGUI:
         precision = (lcs / len(gen_tokens)) * 100 if len(gen_tokens) > 0 else 0.0
 
         return (recall + precision) / 2 if recall > 0 or precision > 0 else 0.0
+
+    def copy_comparison(self):
+        """Copy comparison data to clipboard"""
+        comparison = f"BLEU: {self.current_bleu:.2f}%\nROUGE: {self.current_rouge:.2f}%\n\n"
+        comparison += f"IDEAL:\n{self.current_ideal}\n\n"
+        comparison += f"LLM:\n{self.current_llm}"
+        self.root.clipboard_clear()
+        self.root.clipboard_append(comparison)
+        messagebox.showinfo("Copied", "Comparison data copied to clipboard!")
+
+    def update_complexity_analysis(self, ideal_text, llm_text):
+        """Calculate and display text complexity metrics and word analysis"""
+        ideal_words = ideal_text.lower().split()
+        llm_words = llm_text.lower().split()
+
+        # Word frequency analysis
+        from collections import Counter
+        ideal_freq = Counter(ideal_words)
+        llm_freq = Counter(llm_words)
+
+        # Calculate metrics
+        ideal_unique = len(ideal_freq)
+        llm_unique = len(llm_freq)
+        ideal_avg_len = sum(len(w) for w in ideal_words) / len(ideal_words) if ideal_words else 0
+        llm_avg_len = sum(len(w) for w in llm_words) / len(llm_words) if llm_words else 0
+
+        # Missing and extra words
+        missing = set(ideal_words) - set(llm_words)
+        extra = set(llm_words) - set(ideal_words)
+
+        # Create analysis display
+        analysis = ""
+        analysis += f"{'IDEAL':<40} | {'LLM':<40}\n"
+        analysis += f"{'-'*40} | {'-'*40}\n"
+        analysis += f"Words: {len(ideal_words):<34} | Words: {len(llm_words):<34}\n"
+        analysis += f"Unique: {ideal_unique:<34} | Unique: {llm_unique:<34}\n"
+        analysis += f"Avg word len: {ideal_avg_len:<28} | Avg word len: {llm_avg_len:<28}\n"
+        analysis += f"Vocabulary match: {len(set(ideal_words) & set(llm_words)):<25} | Missing words: {len(missing):<25}\n"
+        analysis += f"\nMissing (in ideal, not in LLM): {', '.join(list(missing)[:5])}\n"
+        analysis += f"Extra (in LLM, not in ideal): {', '.join(list(extra)[:5])}\n"
+
+        self.chart_display.delete("1.0", tk.END)
+        self.chart_display.insert(tk.END, analysis)
+
+    def show_factor_analysis(self):
+        """Show factor importance with matplotlib chart + table"""
+        if not hasattr(self, 'current_contributions'):
+            messagebox.showwarning("No Data", "Generate explanation first in Tab 1")
+            return
+
+        contributions = self.current_contributions
+        top_factors = self.current_top_factors
+        feature_names = self.backend.feature_names
+
+        # Calculate percentages
+        abs_contrib = {k: abs(v) for k, v in contributions.items()}
+        total = sum(abs_contrib.values()) if sum(abs_contrib.values()) > 0 else 1
+
+        # Create new window
+        factor_window = tk.Toplevel(self.root)
+        factor_window.title("Factor Importance Analysis")
+        factor_window.geometry("1000x700")
+        factor_window.configure(bg=self.bg_color)
+
+        # Create matplotlib figure
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        fig.patch.set_facecolor(self.bg_color)
+
+        # LEFT: Bar chart of factor importance
+        sorted_factors = sorted(abs_contrib.items(), key=lambda x: x[1], reverse=True)
+        factor_labels = [FEATURE_MAP[f]['en'][:15] for f, _ in sorted_factors]
+        factor_values = [(v / total) * 100 for _, v in sorted_factors]
+
+        colors = ['#f87171' if f in top_factors else '#60a5fa' for f, _ in sorted_factors]
+
+        ax1.barh(factor_labels, factor_values, color=colors, edgecolor='white', linewidth=1)
+        ax1.set_xlabel("Importance (%)", color=self.fg_color)
+        ax1.set_title("Factor Importance Ranking", color=self.fg_color, fontsize=12, fontweight='bold')
+        ax1.set_facecolor(self.card_bg)
+        ax1.tick_params(colors=self.fg_color)
+        for spine in ax1.spines.values():
+            spine.set_color(self.fg_color)
+            spine.set_alpha(0.3)
+
+        # RIGHT: Table of mentions
+        ax2.axis('off')
+
+        table_data = []
+        table_data.append(["Factor", "Ideal", "LLM", "Top 3"])
+
+        for factor in feature_names:
+            factor_name = FEATURE_MAP[factor]['en'][:15]
+            in_ideal = "✓" if FEATURE_MAP[factor]['en'].lower() in self.current_ideal.lower() else "✗"
+            in_llm = "✓" if FEATURE_MAP[factor]['en'].lower() in self.current_llm.lower() else "✗"
+            is_top = "★" if factor in top_factors else ""
+
+            table_data.append([factor_name, in_ideal, in_llm, is_top])
+
+        table = ax2.table(cellText=table_data, cellLoc='center', loc='center',
+                         colWidths=[0.5, 0.15, 0.15, 0.15])
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1, 2)
+
+        # Style table
+        for i in range(len(table_data)):
+            for j in range(len(table_data[0])):
+                cell = table[(i, j)]
+                if i == 0:  # Header
+                    cell.set_facecolor('#4f46e5')
+                    cell.set_text_props(weight='bold', color='white')
+                else:
+                    cell.set_facecolor(self.card_bg if i % 2 == 0 else '#1e2530')
+                    cell.set_text_props(color=self.fg_color)
+
+        ax2.set_title("Factor Mentions Analysis", color=self.fg_color, fontsize=12, fontweight='bold', pad=20)
+
+        plt.tight_layout()
+
+        # Embed matplotlib in tkinter
+        canvas = FigureCanvasTkAgg(fig, master=factor_window)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    def show_detailed_analysis(self):
+        """Show detailed n-gram and factor analysis"""
+        ideal_words = self.current_ideal.lower().split()
+        llm_words = self.current_llm.lower().split()
+
+        # Calculate all n-gram matches
+        analysis = "DETAILED N-GRAM ANALYSIS:\n"
+        analysis += "="*50 + "\n\n"
+
+        for n in range(1, 5):
+            ideal_ngrams = [' '.join(ideal_words[i:i+n]) for i in range(len(ideal_words)-n+1)]
+            llm_ngrams = [' '.join(llm_words[i:i+n]) for i in range(len(llm_words)-n+1)]
+
+            matching = [ng for ng in llm_ngrams if ng in set(ideal_ngrams)]
+            coverage = len(matching) / max(len(llm_ngrams), 1) * 100
+
+            analysis += f"{n}-gram Coverage: {len(matching)}/{len(llm_ngrams)} = {coverage:.1f}%\n"
+            if matching:
+                analysis += f"  Examples: {', '.join(matching[:4])}\n"
+            analysis += "\n"
+
+        # Factor mentions
+        analysis += "FACTOR MENTION ANALYSIS:\n"
+        analysis += "="*50 + "\n"
+        factors_in_ideal = [f for f in FEATURE_MAP.keys() if FEATURE_MAP[f]['en'].lower() in self.current_ideal.lower()]
+        factors_in_llm = [f for f in FEATURE_MAP.keys() if FEATURE_MAP[f]['en'].lower() in self.current_llm.lower()]
+
+        matching_factors = set(factors_in_ideal) & set(factors_in_llm)
+        missing_factors = set(factors_in_ideal) - set(factors_in_llm)
+
+        analysis += f"Ideal factors: {len(factors_in_ideal)} ({', '.join([FEATURE_MAP[f]['en'][:10] for f in factors_in_ideal[:3]])})\n"
+        analysis += f"LLM factors: {len(factors_in_llm)} ({', '.join([FEATURE_MAP[f]['en'][:10] for f in factors_in_llm[:3]])})\n"
+        analysis += f"Match rate: {len(matching_factors)}/{max(len(factors_in_ideal), 1)} = {len(matching_factors)/max(len(factors_in_ideal), 1)*100:.1f}%\n"
+        if missing_factors:
+            analysis += f"Missing factors: {', '.join([FEATURE_MAP[f]['en'] for f in missing_factors])}\n"
+
+        messagebox.showinfo("Detailed Analysis", analysis)
 
 if __name__ == "__main__":
     # Eliminam afisarea ferestrei goale la matplotlib in fundal
