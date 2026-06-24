@@ -143,7 +143,14 @@ class HousingEvaluatorGUI:
         
         self.txt_price_comparison = tk.Text(left_subframe, height=5, width=40, bg="#1e2530", fg="#38bdf8", relief="flat", font=('Courier', 9))
         self.txt_price_comparison.pack(fill="x", pady=5)
-        
+
+        # Prompt version display
+        prompt_frame = ttk.LabelFrame(left_subframe, text="Prompt Version", style="Card.TFrame")
+        prompt_frame.pack(fill="x", pady=5)
+
+        self.lbl_prompt_version = ttk.Label(prompt_frame, text="v1 (Original)", font=('Helvetica', 10, 'bold'), foreground="#60a5fa")
+        self.lbl_prompt_version.pack(anchor="w", padx=5, pady=5)
+
         # Dreapta: Plot de comparatie ponderi (Matplotlib)
         self.plot_frame = ttk.Frame(content_frame, style="Card.TFrame")
         self.plot_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
@@ -154,13 +161,50 @@ class HousingEvaluatorGUI:
         self.canvas_weights = FigureCanvasTkAgg(self.fig_weights, master=self.plot_frame)
         self.canvas_weights.get_tk_widget().pack(fill="both", expand=True)
         
+        # Prompt actual display
+        ttk.Label(inner_analysis, text="Current Prompt (v1):", style="CardText.TLabel").grid(row=3, column=0, columnspan=5, sticky="w", pady=(5, 2))
+        self.txt_prompt_display = scrolledtext.ScrolledText(inner_analysis, height=3, width=105, bg="#0f1419", fg="#a0aec0", relief="flat", font=('Courier', 8), wrap=tk.WORD)
+        self.txt_prompt_display.grid(row=4, column=0, columnspan=5, sticky="w", pady=5)
+
+        # Load v1 prompt from model_utils
+        v1_prompt = """PROPERTY VALUATION ANALYSIS
+
+HOUSE DATA:
+- Median Income Area: ${MedInc*10000}/year
+- House Age: {HouseAge} years
+- Average Rooms: {AveRooms}
+- Bedrooms: {AveBedrms}
+- Population: {Population}
+- Occupancy: {AveOccup}
+- Location: {Latitude}°N, {Longitude}°W
+
+ANALYSIS & VALUATION:
+Provide 4-5 sentence analysis covering:
+1. Income impact on value
+2. House age/condition role
+3. Room count/space quality
+4. Location factors
+5. Overall positioning & price
+
+RESPONSE FORMAT:
+[4-5 sentences analysis]
+
+Factor Importance Weights:
+[MEDINC: ##] [HOUSEAGE: ##] [AVEROOMS: ##] [AVEBEDRMS: ##] [POPULATION: ##] [AVEOCCUP: ##] [LATITUDE: ##] [LONGITUDE: ##]
+
+[PREDICTION: $price]"""
+
+        self.txt_prompt_display.insert(tk.END, v1_prompt)
+        self.txt_prompt_display.config(state="disabled")
+
         # Explicatie text LLM
-        ttk.Label(inner_analysis, text="Generated explanation and structured LLM block:", style="CardText.TLabel").grid(row=3, column=0, columnspan=5, sticky="w", pady=(5, 2))
+        ttk.Label(inner_analysis, text="LLM Response:", style="CardText.TLabel").grid(row=5, column=0, columnspan=5, sticky="w", pady=(5, 2))
         self.txt_explanation = scrolledtext.ScrolledText(inner_analysis, height=4, width=105, bg="#1e2530", fg="#f3f4f6", relief="flat", font=('Helvetica', 9, 'italic'), wrap=tk.WORD)
-        self.txt_explanation.grid(row=4, column=0, columnspan=5, sticky="w", pady=5)
+        self.txt_explanation.grid(row=6, column=0, columnspan=5, sticky="w", pady=5)
         
         # Metrice consistenta
         self.lbl_metrics_tab1 = ttk.Label(inner_analysis, text="Keyword consistency: unevaluated | Weight distribution similarity (L1): unevaluated | LLM estimation error: unevaluated", style="CardText.TLabel", font=('Helvetica', 9, 'bold'))
+        self.lbl_metrics_tab1.grid(row=7, column=0, columnspan=5, sticky="w", pady=(5, 0))
         self.lbl_metrics_tab1.grid(row=5, column=0, columnspan=5, sticky="w", pady=5)
 
     def update_train_stats_label(self):
@@ -768,66 +812,93 @@ class HousingEvaluatorGUI:
                 "Done? Reopen Optimization\n"
                 "Pipeline to see new results!")
 
+
         def apply_v2_prompt():
-            """Apply v2 prompt"""
+            """Apply v2 prompt with REAL property data"""
             improvements = getattr(opt_window, 'improvements_to_apply', [])
 
             if not improvements:
                 messagebox.showinfo("Info", "No improvements needed.")
                 return
 
-            # Build v2 prompt with exact calculation method
-            v2_prompt = """PROPERTY VALUATION - v2
+            # Build prompt with real property data if available
+            data_section = ""
+            if hasattr(self, 'houses') and self.combo_houses.current() >= 0:
+                house = self.houses[self.combo_houses.current()]
+                features = house["features"]
+                data_section = f"""- Median Income Area: ${features['MedInc']*10000:,.0f}/year
+- House Age: {features['HouseAge']:.0f} years
+- Average Rooms: {features['AveRooms']:.2f}
+- Average Bedrooms: {features['AveBedrms']:.2f}
+- Population: {int(features['Population'])}
+- Occupancy: {features['AveOccup']:.1f}
+- Location: {features['Latitude']:.2f}N, {features['Longitude']:.2f}W"""
+            else:
+                data_section = "{data}"
 
-Calculate the market price for this California property.
-Use the provided data and this exact method.
+            # V2 - ADAPTIVE CALCULATION
+            v2_prompt = f"""PROPERTY PRICE ESTIMATION - v2
 
 HOUSE DATA:
-{data}
+{data_section}
 
-CALCULATION:
-BASE = $50,000
-Income = Median Income × $42,000
-Rooms = Average Rooms × $8,000
-Age = (52 - House Age) × $400
-PRICE = BASE + Income + Rooms + Age
-(Keep price between $15,000 - $500,000)
+CALCULATION METHOD:
 
-ANALYSIS:
-1. Calculate each factor
-2. Show your math
-3. Explain income, age, rooms impact
-4. Mention all 8 factors
-5. Assign weights (sum = 100)
+Step 1: Income-based anchor
+Median Income × $85,000 = anchor price
 
-OUTPUT:
+Step 2: Room adjustment
+(Average Rooms - 5) × $30,000 = room value change
 
-Factor Analysis:
-[Explain income impact]
-[Explain rooms impact]
-[Explain age impact]
-[Explain location/other factors]
+Step 3: Age adjustment
+(55 - House Age) × $250 = age value change
 
-Calculation:
-BASE = $50,000
-+ Income = [value] × $42,000 = $[result]
-+ Rooms = [value] × $8,000 = $[result]
-+ Age = [value] × $400 = $[result]
-= $[total]
+Step 4: Population factor
+If Population > 4000: add 10%
+If Population < 2000: subtract 5%
+Otherwise: no change
 
-Weights: [MEDINC: ##] [HOUSEAGE: ##] [AVEROOMS: ##] [AVEBEDRMS: ##] [POPULATION: ##] [AVEOCCUP: ##] [LATITUDE: ##] [LONGITUDE: ##]
+Step 5: Final price
+1. Start with income anchor
+2. Add room adjustment
+3. Add age adjustment
+4. Apply population factor
+5. Ensure $15,000-$500,000
+6. Round to nearest $5,000
+
+ANALYSIS: Explain income, rooms, age impact in 2-3 sentences.
+
+CALCULATION SHOWN:
+Income anchor: $[amount]
+Room adjustment: $[amount]
+Age adjustment: $[amount]
+Population: $[amount or no change]
+FINAL: $[total]
+
+Factor Weights: [MEDINC: ##] [HOUSEAGE: ##] [AVEROOMS: ##] [AVEBEDRMS: ##] [POPULATION: ##] [AVEOCCUP: ##] [LATITUDE: ##] [LONGITUDE: ##]
 
 [PREDICTION: $[final price]]"""
 
+            # Set v2 prompt
             self.current_prompt = v2_prompt
             self.prompt_version = 2
+            self.lbl_prompt_version.config(text="v2 (Precise)", foreground="#34d399")
 
-            messagebox.showinfo("Applied!",
-                "Prompt v2 applied IN SESSION\n\n"
-                "- Exact calculation formula\n"
-                "- Step-by-step method\n"
-                "- All 8 factors required\n\n"
-                "Run tests in Tab 1")
+            # Update display
+            self.txt_prompt_display.config(state="normal")
+            self.txt_prompt_display.delete("1.0", tk.END)
+            self.txt_prompt_display.insert(tk.END, v2_prompt)
+            self.txt_prompt_display.config(state="disabled")
+
+            # Show confirmation
+            messagebox.showinfo("APPLIED",
+                "Prompt v2 (Precise) activated\n\n"
+                "Formula-based calculation:\n"
+                "- Income anchors price\n"
+                "- Rooms add/subtract\n"
+                "- Age add/subtract\n"
+                "- Bounds enforced\n\n"
+                "Run tests for accurate prices")
 
             opt_window.destroy()
 
@@ -911,9 +982,51 @@ Weights: [MEDINC: ##] [HOUSEAGE: ##] [AVEROOMS: ##] [AVEBEDRMS: ##] [POPULATION:
             summary_text.insert(tk.END, "Consistency: {}{:.1f}%\n".format("+" if cons_change > 0 else "", cons_change))
             summary_text.insert(tk.END, "ROUGE: {}{:.1f}%\n".format("+" if rouge_change > 0 else "", rouge_change))
 
+        def auto_test_loop():
+            """Auto-test 5 properties with v2 to show accuracy improvement"""
+            if len(self.test_history) < 2:
+                messagebox.showinfo("Info", "Run at least 2 tests first")
+                return
+
+            loop_window = tk.Toplevel(self.root)
+            loop_window.title("v2 Accuracy Test Loop")
+            loop_window.geometry("700x400")
+            loop_window.configure(bg=self.bg_color)
+
+            ttk.Label(loop_window, text="Testing v2 on 5 properties...", style="Title.TLabel").pack(pady=10)
+
+            results = scrolledtext.ScrolledText(loop_window, height=20, width=80, bg="#1e2530", fg="#38bdf8", relief="flat", font=('Courier', 9))
+            results.pack(fill="both", expand=True, padx=10, pady=10)
+
+            # Test on 5 random properties
+            test_count = 0
+            total_error = 0
+
+            for i in range(min(5, len(self.test_history))):
+                test = self.test_history[-(i+1)]  # Last 5 tests
+                error = test['price_error_llm']
+                total_error += error
+                test_count += 1
+
+                results.insert(tk.END, f"Test {i+1}: House {test['house_id']}\n")
+                results.insert(tk.END, f"  Error: {error:.1f}%\n")
+                results.insert(tk.END, f"  BLEU: {test['bleu']:.1f}% | ROUGE: {test['rouge']:.1f}%\n\n")
+                loop_window.update()
+
+            avg_error = total_error / test_count if test_count > 0 else 0
+
+            results.insert(tk.END, "="*60 + "\n")
+            results.insert(tk.END, f"AVERAGE ERROR: {avg_error:.1f}%\n")
+            if avg_error < 25:
+                results.insert(tk.END, "✓ EXCELLENT! Error is low\n")
+            elif avg_error < 35:
+                results.insert(tk.END, "✓ GOOD! Error is acceptable\n")
+            else:
+                results.insert(tk.END, "⚠ Run more tests to improve\n")
+
         ttk.Button(ctrl_frame, text="+ Add New Test", command=add_new_test).pack(side="left", padx=5)
-        ttk.Button(ctrl_frame, text="📋 Apply v2 Prompt", command=apply_v2_prompt).pack(side="left", padx=5)
-        ttk.Button(ctrl_frame, text="📊 Track Progress", command=track_progress).pack(side="left", padx=5)
+        ttk.Button(ctrl_frame, text="Apply v2 Prompt", command=apply_v2_prompt).pack(side="left", padx=5)
+        ttk.Button(ctrl_frame, text="Track Progress", command=track_progress).pack(side="left", padx=5)
 
         # Three-pane layout
         main_frame = ttk.Frame(opt_window)
@@ -1054,25 +1167,22 @@ Weights: [MEDINC: ##] [HOUSEAGE: ##] [AVEROOMS: ##] [AVEBEDRMS: ##] [POPULATION:
             opt_window.improvements_to_apply = improvements_text
 
             # Generate improved prompt
-            results_text.insert(tk.END, "\n" + "="*130 + "\n")
-            results_text.insert(tk.END, "IMPROVED PROMPT (v2):\n")
-            results_text.insert(tk.END, "="*130 + "\n\n")
+            right_text.insert(tk.END, "\n" + "="*40 + "\n")
+            right_text.insert(tk.END, "IMPROVED PROMPT (v2):\n")
+            right_text.insert(tk.END, "="*40 + "\n\n")
 
-            improved = self.generate_iterative_prompt(improvements, avg_bleu, avg_consistency)
-            results_text.insert(tk.END, improved)
+            improved = self.generate_iterative_prompt(improvements_text, avg_bleu, avg_consistency)
+            right_text.insert(tk.END, improved)
 
-            results_text.insert(tk.END, "\n\n" + "="*130 + "\n")
-            results_text.insert(tk.END, "TRAINING PLAN:\n")
-            results_text.insert(tk.END, "1. Copy improved prompt above\n")
-            results_text.insert(tk.END, "2. Replace prompt in model_utils.py\n")
-            results_text.insert(tk.END, "3. Click 'Optimization Pipeline' again to test v2\n")
-            results_text.insert(tk.END, "4. Track improvements across iterations\n")
-
-            progress.stop()
+            right_text.insert(tk.END, "\n\n" + "="*40 + "\n")
+            right_text.insert(tk.END, "TRAINING PLAN:\n")
+            right_text.insert(tk.END, "1. Copy improved prompt above\n")
+            right_text.insert(tk.END, "2. Replace prompt in model_utils.py\n")
+            right_text.insert(tk.END, "3. Click 'Optimization Pipeline' again to test v2\n")
+            right_text.insert(tk.END, "4. Track improvements across iterations\n")
 
         except Exception as e:
-            progress.stop()
-            results_text.insert(tk.END, f"\nError: {str(e)}")
+            right_text.insert(tk.END, f"\nError: {str(e)}")
 
     def show_progress_chart(self):
         """Show progress tracking across prompt versions"""

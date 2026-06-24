@@ -374,7 +374,7 @@ RESPONSE FORMAT:
 Factor Importance Weights:
 {weights_str}
 
-ESTIMATED HOUSE PRICE: {int(final_price)}"""
+[PREDICTION: ${int(final_price)}]"""
 
             response, is_sim = self.query_ollama(ollama_prompt)
             if response and not is_sim:
@@ -424,8 +424,8 @@ RESPOND WITH:
         # Extract prediction - STRICT parsing with specific keyword
         llm_pred = None
 
-        # PRIORITY 1: Look for "ESTIMATED HOUSE PRICE:" keyword (most specific)
-        pred_match = re.search(r'ESTIMATED\s+HOUSE\s+PRICE:\s*([\d,]+)', text, re.IGNORECASE)
+        # PRIORITY 1: Look for [PREDICTION: $X] format (most specific)
+        pred_match = re.search(r'\[PREDICTION:\s*\$?([\d,]+)\]', text, re.IGNORECASE)
         if pred_match:
             try:
                 pred_str = pred_match.group(1).replace(',', '')
@@ -434,6 +434,18 @@ RESPOND WITH:
                     llm_pred = None
             except (ValueError, IndexError):
                 pass
+
+        # PRIORITY 1B: Look for "ESTIMATED HOUSE PRICE:" keyword
+        if llm_pred is None:
+            pred_match = re.search(r'ESTIMATED\s+HOUSE\s+PRICE:\s*\$?([\d,]+)', text, re.IGNORECASE)
+            if pred_match:
+                try:
+                    pred_str = pred_match.group(1).replace(',', '')
+                    llm_pred = float(pred_str)
+                    if not (15000 <= llm_pred <= 500000):
+                        llm_pred = None
+                except (ValueError, IndexError):
+                    pass
 
         # PRIORITY 2: Try other prediction keywords
         if llm_pred is None:
