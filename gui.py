@@ -14,7 +14,7 @@ from model_utils import HousingEvaluatorBackend, FEATURE_MAP
 class HousingEvaluatorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Housing Price Evaluator - LLM Factual Consistency & XAI")
+        self.root.title("Housing Price Evaluator")
         self.root.geometry("1100x850")
 
         self.backend = HousingEvaluatorBackend()
@@ -71,11 +71,8 @@ class HousingEvaluatorGUI:
         header_frame = ttk.Frame(self.root)
         header_frame.pack(fill="x", padx=15, pady=5)
 
-        title_label = ttk.Label(header_frame, text="Housing Price Evaluator - LLM Explanation Consistency & XAI", style="Title.TLabel")
+        title_label = ttk.Label(header_frame, text="Housing Price Evaluator", style="Title.TLabel")
         title_label.pack(anchor="w")
-
-        desc_label = ttk.Label(header_frame, text="Verification of alignment between qualitative explanations/ponderile LLM and local mathematical importance weights", font=('Helvetica', 9))
-        desc_label.pack(anchor="w")
 
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=15, pady=10)
