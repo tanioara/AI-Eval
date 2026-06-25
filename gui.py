@@ -55,6 +55,18 @@ class HousingEvaluatorGUI:
         self.style.configure('TNotebook.Tab', background=self.card_bg, foreground=self.fg_color, padding=[10, 4], font=('Helvetica', 9))
         self.style.map('TNotebook.Tab', background=[('selected', self.accent_color)], foreground=[('selected', '#ffffff')])
 
+        # Styling for Combobox and Spinbox to fit the dark theme
+        self.style.configure('TCombobox', fieldbackground='#1e2530', background='#273142', foreground='#f3f4f6', arrowcolor='#f3f4f6', bordercolor='#4f46e5', lightcolor='#4f46e5', darkcolor='#4f46e5')
+        self.style.map('TCombobox', fieldbackground=[('readonly', '#1e2530')], foreground=[('readonly', '#f3f4f6')])
+        
+        self.style.configure('TSpinbox', fieldbackground='#1e2530', background='#273142', foreground='#f3f4f6', arrowcolor='#f3f4f6', bordercolor='#4f46e5', lightcolor='#4f46e5', darkcolor='#4f46e5')
+        self.style.map('TSpinbox', fieldbackground=[('readonly', '#1e2530')], foreground=[('readonly', '#f3f4f6')])
+
+        self.root.option_add('*TCombobox*Listbox.background', '#1e2530')
+        self.root.option_add('*TCombobox*Listbox.foreground', '#f3f4f6')
+        self.root.option_add('*TCombobox*Listbox.selectBackground', '#4f46e5')
+        self.root.option_add('*TCombobox*Listbox.selectForeground', '#ffffff')
+
     def create_widgets(self):
         header_frame = ttk.Frame(self.root)
         header_frame.pack(fill="x", padx=15, pady=5)
@@ -156,7 +168,7 @@ class HousingEvaluatorGUI:
         self.canvas_weights = FigureCanvasTkAgg(self.fig_weights, master=self.plot_frame)
         self.canvas_weights.get_tk_widget().pack(fill="both", expand=True)
 
-        ttk.Label(inner_analysis, text="Current Prompt (v1):", style="CardText.TLabel").grid(row=3, column=0, columnspan=5, sticky="w", pady=(5, 2))
+        ttk.Label(inner_analysis, text="Current Prompt:", style="CardText.TLabel").grid(row=3, column=0, columnspan=5, sticky="w", pady=(5, 2))
         self.txt_prompt_display = scrolledtext.ScrolledText(inner_analysis, height=3, width=105, bg="#0f1419", fg="#a0aec0", relief="flat", font=('Courier', 8), wrap=tk.WORD)
         self.txt_prompt_display.grid(row=4, column=0, columnspan=5, sticky="w", pady=5)
 
@@ -235,8 +247,8 @@ Factor Importance Weights:
 
         self.txt_house_details.delete("1.0", tk.END)
         self.txt_house_details.insert(tk.END, "PROPERTY DATA:\n")
-        self.txt_house_details.insert(tk.END, f"Median Income:    ${features['MedInc']*10:.1f}k/an\n")
-        self.txt_house_details.insert(tk.END, f"House Age:    {features['HouseAge']:.0f} ani\n")
+        self.txt_house_details.insert(tk.END, f"Median Income:    ${features['MedInc']*10:.1f}k/year\n")
+        self.txt_house_details.insert(tk.END, f"House Age:    {features['HouseAge']:.0f} years\n")
         self.txt_house_details.insert(tk.END, f"Number of Rooms:    {features['AveRooms']:.2f}\n")
         self.txt_house_details.insert(tk.END, f"Bedrooms:      {features['AveBedrms']:.2f}\n")
         self.txt_house_details.insert(tk.END, f"Area Population:  {int(features['Population'])}\n")
@@ -254,7 +266,7 @@ Factor Importance Weights:
         self.lbl_metrics_tab1.config(text="Keyword consistency: unevaluated | Weight distribution similarity (L1): unevaluated | LLM estimation error: unevaluated")
 
         self.ax_weights.clear()
-        self.ax_weights.set_title("Comparare ponderi caracteristici (Model vs LLM)", color=self.fg_color, fontsize=9)
+        self.ax_weights.set_title("Feature Weights Comparison (Model vs LLM)", color=self.fg_color, fontsize=9)
         self.fig_weights.tight_layout()
         self.canvas_weights.draw()
 
@@ -368,18 +380,18 @@ Factor Importance Weights:
     def draw_weights_comparison_plot(self, real_weights, llm_weights):
         self.ax_weights.clear()
 
-        labels = [FEATURE_MAP[name]["ro"][:10] for name in self.backend.feature_names]
+        labels = [FEATURE_MAP[name]["en"][:10] for name in self.backend.feature_names]
         x = np.arange(len(labels))
         width = 0.35
 
         y_real = [real_weights[name] for name in self.backend.feature_names]
         y_llm = [llm_weights[name] for name in self.backend.feature_names]
 
-        self.ax_weights.bar(x - width/2, y_real, width, label='Model RF', color='#06b6d4')
-        self.ax_weights.bar(x + width/2, y_llm, width, label='Estimare LLM', color='#8b5cf6')
+        self.ax_weights.bar(x - width/2, y_real, width, label='RF Model', color='#06b6d4')
+        self.ax_weights.bar(x + width/2, y_llm, width, label='LLM Estimate', color='#8b5cf6')
 
-        self.ax_weights.set_ylabel('Importanta (%)', color=self.fg_color, fontsize=8)
-        self.ax_weights.set_title('Comparare ponderi: Model de decizie vs Declarat LLM', color=self.fg_color, fontsize=9)
+        self.ax_weights.set_ylabel('Importance (%)', color=self.fg_color, fontsize=8)
+        self.ax_weights.set_title('Weight Comparison: Decision Model vs LLM Declared', color=self.fg_color, fontsize=9)
         self.ax_weights.set_xticks(x)
         self.ax_weights.set_xticklabels(labels, rotation=35, ha='right', color=self.fg_color, fontsize=7)
         self.ax_weights.tick_params(colors=self.fg_color, labelsize=7)
