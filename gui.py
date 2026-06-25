@@ -221,13 +221,13 @@ Factor Importance Weights:
             if frac <= 0.0 or frac > 1.0:
                 raise ValueError
         except ValueError:
-            messagebox.showerror("Error", "Training percentage must be between 10 si 100.")
+            messagebox.showerror("Error", "Training percentage must be between 10 and 100.")
             return
 
         self.backend.train_model(train_fraction=frac)
         self.update_train_stats_label()
         self.load_houses_list()
-        messagebox.showinfo("Training", "Model has been trained pe fractiunea selectata.")
+        messagebox.showinfo("Training", "Model has been trained on the selected fraction.")
 
     def load_houses_list(self):
         self.houses = self.backend.get_test_houses(n=50)
