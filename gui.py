@@ -213,7 +213,7 @@ Factor Importance Weights:
         r2 = self.backend.metrics["r2"]
         mae = self.backend.metrics["mae"]
         size = self.backend.metrics["train_size"]
-        self.lbl_train_stats.config(text=f"R-patrat: {r2:.4f} | MAE: ${mae:,.0f} | Number of samples: {size}")
+        self.lbl_train_stats.config(text=f"R-squared: {r2:.4f} | MAE: ${mae:,.0f} | Number of samples: {size}")
 
     def train_on_fraction(self):
         try:
@@ -231,7 +231,7 @@ Factor Importance Weights:
 
     def load_houses_list(self):
         self.houses = self.backend.get_test_houses(n=50)
-        house_strings = [f"Casa ID {h['id']} - Actual Price: ${h['actual_price']:,.0f}" for h in self.houses]
+        house_strings = [f"House ID {h['id']} - Actual Price: ${h['actual_price']:,.0f}" for h in self.houses]
         self.combo_houses['values'] = house_strings
         if house_strings:
             self.combo_houses.current(0)
@@ -424,11 +424,11 @@ Factor Importance Weights:
         left_frame = ttk.Frame(content_frame, style="Card.TFrame")
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        ttk.Label(left_frame, text="Explicatia Ideala (din factori reali):", style="Header.TLabel").pack(anchor="w", pady=(5, 5))
+        ttk.Label(left_frame, text="Ideal Explanation (from real factors):", style="Header.TLabel").pack(anchor="w", pady=(5, 5))
         self.txt_ideal_explanation = scrolledtext.ScrolledText(left_frame, height=6, width=50, bg="#1e2530", fg="#10b981", relief="flat", font=('Helvetica', 9), wrap=tk.WORD)
         self.txt_ideal_explanation.pack(fill="both", expand=True, pady=(0, 10))
 
-        ttk.Label(left_frame, text="Explicatia LLM (din Tab 1):", style="Header.TLabel").pack(anchor="w", pady=(5, 5))
+        ttk.Label(left_frame, text="LLM Explanation (from Tab 1):", style="Header.TLabel").pack(anchor="w", pady=(5, 5))
         self.txt_llm_explanation_tab4 = scrolledtext.ScrolledText(left_frame, height=6, width=50, bg="#1e2530", fg="#f59e0b", relief="flat", font=('Helvetica', 9), wrap=tk.WORD)
         self.txt_llm_explanation_tab4.pack(fill="both", expand=True)
 
@@ -1372,17 +1372,17 @@ Factor Importance Weights:
             jwin.update()
 
             if failed or pairwise_result is None:
-                result_text.insert(tk.END, "PAIRWISE JUDGE INDISPONIBIL\n")
-                result_text.insert(tk.END, "Ollama si Groq nu sunt disponibile.\n")
-                result_text.insert(tk.END, "Verifica ca Ollama ruleaza local (port 11434)\n")
-                result_text.insert(tk.END, "sau seteaza GROQ_API_KEY in environment.\n")
+                result_text.insert(tk.END, "PAIRWISE JUDGE UNAVAILABLE\n")
+                result_text.insert(tk.END, "Ollama and Groq are not available.\n")
+                result_text.insert(tk.END, "Make sure Ollama is running locally (port 11434)\n")
+                result_text.insert(tk.END, "or set GROQ_API_KEY in environment.\n")
             else:
                 winner = pairwise_result['winner']
                 reason = pairwise_result['reason']
                 winner_test = test_a if winner == "A" else test_b
 
-                result_text.insert(tk.END, f"CASTIGATOR: {winner} (House {winner_test['house_id']})\n")
-                result_text.insert(tk.END, f"Motiv: {reason}\n\n")
+                result_text.insert(tk.END, f"WINNER: {winner} (House {winner_test['house_id']})\n")
+                result_text.insert(tk.END, f"Reason: {reason}\n\n")
 
                 summary_text.insert(tk.END, "PAIRWISE RESULT\n" + "="*35 + "\n\n")
                 summary_text.insert(tk.END, f"Winner: {winner}\n")
@@ -1396,7 +1396,7 @@ Factor Importance Weights:
             idx_b = combo_b.current()
 
             if idx_a < 0 or idx_b < 0 or idx_a == idx_b:
-                result_text.insert(tk.END, "Selecteaza doua teste DIFERITE!\n")
+                result_text.insert(tk.END, "Select two DIFFERENT tests!\n")
                 return
 
             test_a = self.test_history[idx_a]
@@ -1405,12 +1405,12 @@ Factor Importance Weights:
             exp_b = test_b.get('explanation_text', '')
             top_factors = test_a.get('top_real_factors') or test_b.get('top_real_factors') or []
 
-            result_text.insert(tk.END, "TEST BIAS DE POZITIE\n" + "="*60 + "\n\n")
-            result_text.insert(tk.END, "Metoda: judge-ul ruleaza de 2 ori — o data cu A primul,\n")
-            result_text.insert(tk.END, "o data cu B primul. Daca verdictul difera => bias de pozitie.\n\n")
+            result_text.insert(tk.END, "POSITION BIAS TEST\n" + "="*60 + "\n\n")
+            result_text.insert(tk.END, "Method: the judge runs twice — once with A first,\n")
+            result_text.insert(tk.END, "once with B first. If the verdict differs => position bias.\n\n")
 
             if force_sim:
-                result_text.insert(tk.END, "[SIMULATION — nu se poate testa bias real fara LLM]\n")
+                result_text.insert(tk.END, "[SIMULATION — cannot test real bias without LLM]\n")
                 return
 
             status_var.set("Running position bias test (pass 1/2)...")
@@ -1423,25 +1423,25 @@ Factor Importance Weights:
             jwin.update()
 
             if not bias_result.get('available'):
-                result_text.insert(tk.END, "TEST BIAS INDISPONIBIL\n")
-                result_text.insert(tk.END, "Necesita LLM (Ollama sau Groq) pentru ambele rulari.\n")
+                result_text.insert(tk.END, "BIAS TEST UNAVAILABLE\n")
+                result_text.insert(tk.END, "Requires LLM (Ollama or Groq) for both runs.\n")
                 return
 
-            result_text.insert(tk.END, f"Rulare normala (A primul):   Castigator = {bias_result['winner_normal_order']}\n")
-            result_text.insert(tk.END, f"  Motiv: {bias_result['reason_normal']}\n\n")
-            result_text.insert(tk.END, f"Rulare inversata (B primul): Castigator mapped = {bias_result['winner_swapped_order_mapped_back']}\n")
-            result_text.insert(tk.END, f"  Motiv: {bias_result['reason_swapped']}\n\n")
+            result_text.insert(tk.END, f"Normal run (A first):   Winner = {bias_result['winner_normal_order']}\n")
+            result_text.insert(tk.END, f"  Reason: {bias_result['reason_normal']}\n\n")
+            result_text.insert(tk.END, f"Swapped run (B first): Winner mapped = {bias_result['winner_swapped_order_mapped_back']}\n")
+            result_text.insert(tk.END, f"  Reason: {bias_result['reason_swapped']}\n\n")
 
             consistent = bias_result['consistent']
             result_text.insert(tk.END, f"VERDICT: {'CONSISTENT (no position bias)' if consistent else 'INCONSISTENT (position bias detected!)'}\n\n")
 
             if consistent:
-                result_text.insert(tk.END, "Judge-ul da acelasi castigator indiferent de ordine.\n")
-                result_text.insert(tk.END, "=> Evaluare robusta, fara favoritism de pozitie.\n")
+                result_text.insert(tk.END, "The judge gives the same winner regardless of order.\n")
+                result_text.insert(tk.END, "=> Robust evaluation, no position favoritism.\n")
             else:
-                result_text.insert(tk.END, "Judge-ul schimba verdictul cand schimbam ordinea!\n")
-                result_text.insert(tk.END, "=> BIAS DE POZITIE DETECTAT — judge-ul favorizeaza prima pozitie.\n")
-                result_text.insert(tk.END, "   Concluzie: scorul pairwise NU e complet de incredere.\n")
+                result_text.insert(tk.END, "The judge changes the verdict when swapping order!\n")
+                result_text.insert(tk.END, "=> POSITION BIAS DETECTED — the judge favors the first position.\n")
+                result_text.insert(tk.END, "   Conclusion: the pairwise score is NOT fully reliable.\n")
 
             summary_text.insert(tk.END, "POSITION BIAS TEST\n" + "="*35 + "\n\n")
             summary_text.insert(tk.END, f"Pass 1 winner: {bias_result['winner_normal_order']}\n")
