@@ -119,17 +119,13 @@ class HousingEvaluatorGUI:
         self.btn_optimize.grid(row=1, column=3, padx=10)
 
         self.force_sim_var = tk.BooleanVar(value=False)
-        chk_sim = ttk.Checkbutton(inner_analysis, text="Force simulation", variable=self.force_sim_var)
-        chk_sim.grid(row=1, column=4, sticky="w", padx=5)
-
-        self.include_judge_var = tk.BooleanVar(value=True)
-        chk_judge = ttk.Checkbutton(inner_analysis, text="Include Judge", variable=self.include_judge_var)
-        chk_judge.grid(row=1, column=5, sticky="w", padx=5)
+        chk_sim = ttk.Checkbutton(inner_analysis, text="Force simulation mode (test without Ollama)", variable=self.force_sim_var)
+        chk_sim.grid(row=1, column=4, sticky="w", padx=10)
 
         content_frame = ttk.Frame(inner_analysis, style="Card.TFrame")
         content_frame.grid(row=2, column=0, columnspan=5, sticky="nsew", pady=10)
         inner_analysis.rowconfigure(2, weight=1)
-        inner_analysis.columnconfigure(5, weight=1)
+        inner_analysis.columnconfigure(4, weight=1)
 
         left_subframe = ttk.Frame(content_frame, style="Card.TFrame", width=320)
         left_subframe.pack(side="left", fill="both", expand=False)
@@ -194,8 +190,8 @@ Factor Importance Weights:
         self.txt_explanation = scrolledtext.ScrolledText(inner_analysis, height=4, width=105, bg="#1e2530", fg="#f3f4f6", relief="flat", font=('Helvetica', 9, 'italic'), wrap=tk.WORD)
         self.txt_explanation.grid(row=6, column=0, columnspan=5, sticky="w", pady=5)
 
-        self.lbl_metrics_tab1 = ttk.Label(inner_analysis, text="Consistency: -- | BLEU: -- | ROUGE: -- | Judge: -- | Halluc: -- | Omissions: -- | SHAP Hint: --", style="CardText.TLabel", font=('Helvetica', 8, 'bold'))
-        self.lbl_metrics_tab1.grid(row=5, column=0, columnspan=6, sticky="w", pady=5)
+        self.lbl_metrics_tab1 = ttk.Label(inner_analysis, text="Keyword consistency: unevaluated | Weight distribution similarity (L1): unevaluated | LLM estimation error: unevaluated", style="CardText.TLabel", font=('Helvetica', 9, 'bold'))
+        self.lbl_metrics_tab1.grid(row=5, column=0, columnspan=5, sticky="w", pady=5)
 
     def update_train_stats_label(self):
         r2 = self.backend.metrics["r2"]
@@ -265,44 +261,34 @@ Factor Importance Weights:
 
         house = self.houses[idx]
         features = house["features"]
-        actual_price = house["actual_price"]
 
         self.btn_explain.config(state="disabled")
         self.root.update()
 
         try:
-            force_sim = self.force_sim_var.get()
-            include_judge = self.include_judge_var.get()
-            use_v2 = (self.prompt_version >= 2)
+            pred_price, y_base, contributions = self.backend.get_local_contributions(features)
 
-            # ---- SINGLE PIPELINE CALL ----
-            result = self.backend.run_full_pipeline(
-                features, actual_price,
-                force_simulation=force_sim,
-                use_v2=use_v2,
-                include_judge=include_judge
+            force_sim = self.force_sim_var.get()
+            explanation_text, was_simulated = self.backend.generate_explanation(
+                features, pred_price, contributions, force_simulation=force_sim
             )
 
-            pred_price = result["pred_price"]
-            explanation_text = result["explanation"]
-            llm_pred = result["llm_prediction"]
-            contributions = result["contributions"]
-            bleu = result["bleu"]
-            rouge = result["rouge"]
-            was_simulated = result["was_simulated"]
-
-            # ---- UPDATE LLM RESPONSE ----
             self.txt_explanation.delete("1.0", tk.END)
             self.txt_explanation.insert(tk.END, explanation_text)
 
-            # ---- UPDATE PRICE COMPARISON ----
+            parsed_data = self.backend.parse_llm_explanation(explanation_text)
+            eval_res = self.backend.evaluate_explanation_consistency(contributions, parsed_data)
+
+            llm_pred = eval_res["llm_prediction"]
+            actual_price = house["actual_price"]
+
             self.txt_price_comparison.delete("1.0", tk.END)
             self.txt_price_comparison.insert(tk.END, "PRICE ESTIMATES:\n")
             self.txt_price_comparison.insert(tk.END, f"Actual Price:       ${actual_price:,.0f}\n")
             self.txt_price_comparison.insert(tk.END, f"ML Model Price:   ${pred_price:,.0f}\n")
 
-            pe = result["llm_price_error_pct"]
             if llm_pred is not None:
+                pe = abs(llm_pred - actual_price) / actual_price * 100.0
                 self.txt_price_comparison.insert(tk.END, f"LLM Estimate: ${llm_pred:,.0f}\n")
                 self.txt_price_comparison.insert(tk.END, f"LLM Price Error:   {pe:.1f}%\n")
                 err_text = f"{pe:.1f}%"
@@ -311,28 +297,19 @@ Factor Importance Weights:
                 self.txt_price_comparison.insert(tk.END, "LLM Price Error:   N/A\n")
                 err_text = "N/A"
 
-            # ---- UPDATE METRICS LABEL (all pipeline outputs) ----
-            cons_pct = result["factual_consistency"] * 100.0
-            judge_str = f"{result['judge_score']:.1f}/10" if result.get('judge_score') is not None else "--"
-            halluc_count = len(result["hallucinations"])
-            omission_count = len(result["omissions"])
-            hint = result["shap_hint_strength"]
-
+            cons_pct = eval_res['factual_consistency'] * 100.0
+            dist_pct = eval_res['distribution_consistency']
             self.lbl_metrics_tab1.config(
-                text=(
-                    f"Consistency: {cons_pct:.1f}% | "
-                    f"BLEU: {bleu:.1f}% | ROUGE: {rouge:.1f}% | "
-                    f"Judge: {judge_str} | "
-                    f"Halluc: {halluc_count} | Omissions: {omission_count} | "
-                    f"SHAP Hint: {hint}"
-                )
+                text=f"Keyword consistency: {cons_pct:.1f}% | Asemanare ponderi (L1): {dist_pct:.1f}% | Error pret LLM: {err_text}"
             )
 
-            # ---- UPDATE PLOTS ----
-            self.draw_weights_comparison_plot(result["real_weights"], result["llm_weights"])
-            self.update_bleu_rouge_dashboard(result)
+            self.draw_weights_comparison_plot(eval_res["real_weights"], eval_res["llm_weights"])
+            self.update_bleu_rouge_dashboard(features, explanation_text, contributions, eval_res)
 
-            # ---- BUILD TEST RECORD (from pipeline result) ----
+            ideal_exp = self.generate_ideal_explanation(features, eval_res["top_real_factors"])
+            bleu = self.calculate_bleu_score(ideal_exp, explanation_text)
+            rouge = self.calculate_rouge_score(ideal_exp, explanation_text)
+
             test_record = {
                 'house_id': house['id'],
                 'timestamp': __import__('datetime').datetime.now(),
@@ -342,17 +319,14 @@ Factor Importance Weights:
                 'llm_price': llm_pred if llm_pred else 0,
                 'bleu': bleu,
                 'rouge': rouge,
-                'consistency': cons_pct,
-                'price_error_llm': pe if pe is not None else 999,
-                'factors_matched': len(set(result["top_real_factors"]) & set(result["keywords_detected"])),
-                'top_real_factors': result["top_real_factors"],
+                'consistency': eval_res["factual_consistency"] * 100,
+                'price_error_llm': (abs(llm_pred - actual_price) / actual_price * 100) if llm_pred else 999,
+                'factors_matched': len(set(eval_res["top_real_factors"]) & set(parsed_data["keywords_detected"])),
+                'top_real_factors': eval_res["top_real_factors"],
                 'explanation_text': explanation_text,
-                'judge_score': result["judge_score"],
-                'judge_reason': result["judge_reason"],
+                'judge_score': None,
+                'judge_reason': None,
                 'was_simulated': was_simulated,
-                'hallucinations': result["hallucinations"],
-                'omissions': result["omissions"],
-                'shap_hint_strength': hint,
             }
             self.test_history.append(test_record)
 
@@ -467,15 +441,10 @@ Factor Importance Weights:
         ttk.Button(btn_frame, text="Details", command=self.show_detailed_analysis).pack(side="left", padx=2)
         ttk.Button(btn_frame, text="Factors", command=self.show_factor_analysis).pack(side="left", padx=2)
 
-    def update_bleu_rouge_dashboard(self, pipeline_result):
-        """Update Tab 4 BLEU/ROUGE dashboard from a pipeline result dict."""
-        bleu = pipeline_result["bleu"]
-        rouge = pipeline_result["rouge"]
-        ideal_explanation = pipeline_result["ideal_explanation"]
-        llm_explanation_text = pipeline_result["explanation"]
-        contributions = pipeline_result["contributions"]
-        top_real_factors = pipeline_result["top_real_factors"]
-        factual_consistency = pipeline_result["factual_consistency"] * 100
+    def update_bleu_rouge_dashboard(self, features, llm_explanation_text, contributions, eval_res):
+        ideal_explanation = self.generate_ideal_explanation(features, eval_res["top_real_factors"])
+        bleu = self.calculate_bleu_score(ideal_explanation, llm_explanation_text)
+        rouge = self.calculate_rouge_score(ideal_explanation, llm_explanation_text)
 
         llm_text_only = llm_explanation_text.split('[')[0].strip() if '[' in llm_explanation_text else llm_explanation_text[:400]
 
@@ -522,8 +491,9 @@ Factor Importance Weights:
         self.current_ideal = ideal_explanation
         self.current_llm = llm_text_only
         self.current_contributions = contributions
-        self.current_top_factors = top_real_factors
+        self.current_top_factors = eval_res["top_real_factors"]
 
+        factual_consistency = eval_res.get("factual_consistency", 0) * 100
         quality_score = (bleu * 0.3 + rouge * 0.3 + factual_consistency * 0.4)
 
         self.lbl_quality_score.config(text=f"{quality_score:.1f}%")
@@ -558,26 +528,14 @@ Factor Importance Weights:
         ideal_word_count = len(ref_tokens)
         llm_word_count = len(gen_tokens)
 
-        # Compute n-gram match stats for interpretation
-        bleu_matches = 0
-        bleu_total = max(len(gen_tokens) - 2 + 1, 0)
-        if bleu_total > 0:
-            from collections import Counter
-            ref_ngrams = [' '.join(ref_tokens[i:i+2]) for i in range(len(ref_tokens) - 1)]
-            gen_ngrams = [' '.join(gen_tokens[i:i+2]) for i in range(len(gen_tokens) - 1)]
-            ref_c = Counter(ref_ngrams)
-            gen_c = Counter(gen_ngrams)
-            for ng in gen_c:
-                bleu_matches += min(gen_c[ng], ref_c.get(ng, 0))
-
         interp = "TECHNICAL METRICS:\n"
         interp += "="*32 + "\n\n"
         interp += f"BLEU: {bleu:.2f}%\n"
         interp += f"Formula: matches / total_ngrams\n"
         interp += f"Details:\n"
-        interp += f"  Matches: {bleu_matches}\n"
-        interp += f"  2-grams: {bleu_total}\n"
-        interp += f"  = {bleu_matches}/{bleu_total} = {(bleu_matches/bleu_total*100) if bleu_total>0 else 0:.2f}%\n"
+        interp += f"  Matches: {self.bleu_matches}\n"
+        interp += f"  2-grams: {self.bleu_total}\n"
+        interp += f"  = {self.bleu_matches}/{self.bleu_total} = {self.bleu_precision:.2f}%\n"
         interp += f"Ref: {ideal_word_count} words\n"
         interp += f"Gen: {llm_word_count} words\n"
         interp += f"\nROUGE: {rouge:.2f}%\n"
@@ -587,16 +545,7 @@ Factor Importance Weights:
         interp += f"  Ref words: {ideal_word_count}\n"
         interp += f"  = {lcs}/{ideal_word_count} = {(lcs/ideal_word_count*100) if ideal_word_count>0 else 0:.2f}%\n"
         interp += f"Precision: {(lcs/llm_word_count*100) if llm_word_count>0 else 0:.2f}%\n"
-        interp += f"\nFactors: {', '.join([FEATURE_MAP[f]['en'][:8] for f in top_real_factors[:2]])}\n"
-
-        # Show judge + hallucinations in interpretation
-        judge_s = pipeline_result.get('judge_score')
-        if judge_s is not None:
-            interp += f"\nJudge: {judge_s:.1f}/10\n"
-            interp += f"Reason: {pipeline_result.get('judge_reason', '')}\n"
-        interp += f"Hallucinations: {len(pipeline_result['hallucinations'])}\n"
-        interp += f"Omissions: {len(pipeline_result['omissions'])}\n"
-        interp += f"SHAP Hint: {pipeline_result['shap_hint_strength']}\n"
+        interp += f"\nFactors: {', '.join([FEATURE_MAP[f]['en'][:8] for f in eval_res['top_real_factors'][:2]])}"
 
         self.txt_interpretation.delete("1.0", tk.END)
         self.txt_interpretation.insert(tk.END, interp)
@@ -765,6 +714,61 @@ Factor Importance Weights:
                 "Test is auto-saved\n\n"
                 "Done? Reopen Optimization Pipeline to see new results!")
 
+        def apply_v2_prompt():
+            improvements = getattr(opt_window, 'improvements_to_apply', [])
+            f = {
+                'MedInc': 3.5, 'HouseAge': 20.0, 'AveRooms': 5.0,
+                'AveBedrms': 1.0, 'Population': 1000.0, 'AveOccup': 3.0,
+                'Latitude': 34.0, 'Longitude': -118.0
+            }
+            data_section = "{data}"
+            ml_price = 50000
+            final_price = 50000
+
+            if hasattr(self, 'houses') and self.combo_houses.current() >= 0:
+                try:
+                    house = self.houses[self.combo_houses.current()]
+                    f = house["features"]
+                    ml_price = house.get('predicted_price', 50000)
+                    adjustment = 0
+                    if f['AveRooms'] > 6: adjustment += ml_price * 0.03
+                    elif f['AveRooms'] < 5: adjustment -= ml_price * 0.02
+                    if f['HouseAge'] < 10: adjustment += ml_price * 0.02
+                    elif f['HouseAge'] > 45: adjustment -= ml_price * 0.01
+                    final_price = max(15000, min(500000, (ml_price * 0.85) + (adjustment * 0.15)))
+
+                    data_section = (
+                        f"Median Income: {f['MedInc']:.4f} (${f['MedInc']*10000:,.0f}/year)\n"
+                        f"House Age: {f['HouseAge']:.0f} years\n"
+                        f"Average Rooms: {f['AveRooms']:.2f}\n"
+                        f"Average Bedrooms: {f['AveBedrms']:.2f}\n"
+                        f"Population: {int(f['Population'])}\n"
+                        f"Occupancy: {f['AveOccup']:.2f}\n"
+                        f"Location: {f['Latitude']:.2f}N, {f['Longitude']:.2f}W"
+                    )
+                except Exception:
+                    pass
+
+            v2_prompt = (
+                f"PROPERTY VALUATION - v2 (OPTIMIZED ESTIMATE)\n\nHOUSE DATA:\n{data_section}\n\n"
+                f"Primary Estimate (ML-based): ${ml_price:,.0f}\n\n"
+                f"Factor Weights: [MEDINC: 50] [HOUSEAGE: 15] [AVEROOMS: 25] [AVEBEDRMS: 5] "
+                f"[POPULATION: 3] [AVEOCCUP: 1] [LATITUDE: 1] [LONGITUDE: 0]\n\n"
+                f"[PREDICTION: ${final_price:,.0f}]"
+            )
+
+            self.current_prompt = v2_prompt
+            self.prompt_version = 2
+            self.lbl_prompt_version.config(text="v2 (Precise)", foreground="#34d399")
+
+            self.txt_prompt_display.config(state="normal")
+            self.txt_prompt_display.delete("1.0", tk.END)
+            self.txt_prompt_display.insert(tk.END, v2_prompt)
+            self.txt_prompt_display.config(state="disabled")
+
+            messagebox.showinfo("APPLIED", "Prompt v2 (Precise) activated.\nRun tests for accurate prices.")
+            opt_window.destroy()
+
         def track_progress():
             if len(self.test_history) < 1:
                 messagebox.showinfo("No data", "Run at least 1 test to track progress")
@@ -850,38 +854,20 @@ Factor Importance Weights:
                 direction = "+" if delta > 0 else ""
                 summary_text.insert(tk.END, f"{label}: {direction}{delta:.1f}%\n")
 
+        # ---- NEW: Judge Analysis Button ----
         def launch_judge_analysis():
-            """Open LLM-as-a-Judge panel."""
+            """Open LLM-as-a-Judge analysis window integrated in pipeline."""
             self._open_judge_panel(opt_window)
 
-        def apply_v2_prompt():
-            """Switch to v2 prompt using backend.build_prompt_v2() with SHAP dynamic weights."""
-            if not hasattr(self, 'houses') or self.combo_houses.current() < 0:
-                messagebox.showwarning("No House", "Select a property in Tab 1 first.")
-                return
-
-            house = self.houses[self.combo_houses.current()]
-            features = house["features"]
-
-            pred_price, _, contributions = self.backend.get_local_contributions(features)
-            v2_prompt = self.backend.build_prompt_v2(features, pred_price, contributions)
-
-            self.current_prompt = v2_prompt
-            self.prompt_version = 2
-            self.lbl_prompt_version.config(text="v2 (SHAP-Grounded)", foreground="#34d399")
-
-            self.txt_prompt_display.config(state="normal")
-            self.txt_prompt_display.delete("1.0", tk.END)
-            self.txt_prompt_display.insert(tk.END, v2_prompt)
-            self.txt_prompt_display.config(state="disabled")
-
-            messagebox.showinfo("Applied", "Prompt v2 (SHAP-Grounded) activated.\nRun 'Estimate & Explain' to test.")
-            opt_window.destroy()
-
         ttk.Button(ctrl_frame, text="+ Add New Test", command=add_new_test).pack(side="left", padx=5)
-        ttk.Button(ctrl_frame, text="Judge Analysis", command=launch_judge_analysis).pack(side="left", padx=5)
         ttk.Button(ctrl_frame, text="Apply v2 Prompt", command=apply_v2_prompt).pack(side="left", padx=5)
         ttk.Button(ctrl_frame, text="Track Progress", command=track_progress).pack(side="left", padx=5)
+        ttk.Button(ctrl_frame, text="Judge Analysis", command=launch_judge_analysis,
+                   style="TButton").pack(side="left", padx=5)
+
+        # Separator label
+        ttk.Label(ctrl_frame, text="|  LLM-as-a-Judge: score absolut + pairwise + bias pozitie",
+                  foreground="#f59e0b", background=self.bg_color, font=('Helvetica', 8)).pack(side="left", padx=10)
 
         # ---- FOUR-PANE LAYOUT ----
         main_frame = ttk.Frame(opt_window)
@@ -927,20 +913,6 @@ Factor Importance Weights:
 
         # ---- POPULATE PANES ----
         try:
-            # Coverage check before populating
-            if hasattr(self, 'houses') and self.houses:
-                thin = self.backend.coverage_check(self.houses[:20])
-                if thin:
-                    center_text.insert(tk.END, "COVERAGE WARNINGS:\n" + "="*38 + "\n")
-                    center_text.insert(tk.END, f"{len(thin)} houses have thin keyword\n")
-                    center_text.insert(tk.END, "coverage (< 3 keywords for top factor).\n")
-                    center_text.insert(tk.END, "This may deflate consistency scores.\n\n")
-                    for t in thin[:5]:
-                        center_text.insert(tk.END,
-                            f"  House {t['house_id']}: {t['factor_label']}"
-                            f" ({t['keyword_count']} keywords)\n")
-                    center_text.insert(tk.END, "\n")
-
             price_errors_ml, price_errors_llm, bleu_scores, rouge_scores = [], [], [], []
             consistency_scores, error_differences = [], []
 
@@ -966,10 +938,6 @@ Factor Importance Weights:
                 left_text.insert(tk.END, f"  ML:      ${test['ml_price']:,.0f} ({ml_error:+.1f}%)\n")
                 left_text.insert(tk.END, f"  LLM:     ${test['llm_price']:,.0f} ({llm_error:+.1f}%)\n")
                 left_text.insert(tk.END, f"  Judge:   {judge_str}\n")
-                halluc = test.get('hallucinations', [])
-                omis = test.get('omissions', [])
-                hint = test.get('shap_hint_strength', '--')
-                left_text.insert(tk.END, f"  Halluc:  {len(halluc)} | Omis: {len(omis)} | Hint: {hint}\n")
                 left_text.insert(tk.END, f"  LLM vs ML: {error_diff:+.1f}%\n\n")
 
                 if error_diff > 20:
